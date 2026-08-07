@@ -1,4 +1,4 @@
-# 📘 Carteira do Estudante Interno
+# 📘 Carteira do Estudante
 
 ---
 
@@ -38,9 +38,9 @@ Esta aplicação substituirá métodos analógicos, garantindo maior agilidade n
 
 Para acompanhar o andamento do desenvolvimento, consultar a estrutura técnica e visualizar os relatórios semanais, acesse os links abaixo:
 
-- 📖 **Wiki do Projeto:** [https://github.com/ifpebj-ti/carteira-estudante/wiki](#)  
+- 📖 **Wiki do Projeto:** [Wiki](https://github.com/ifpebj-ti/carteira-estudante/wiki)  
 - 🧠 **Sprint Report:** [Acessar Apresentação no Canva](https://www.canva.com/design/DAHRXVlkBac/6a_kkPh-dPgYU30oEOfxBA/edit)    
-- 🎨 **Protótipos das Telas:** [Adicionar Link do Figma/Similar](#)
+- 🎨 **Protótipos das Telas:** [](#)
 
 ---
 
