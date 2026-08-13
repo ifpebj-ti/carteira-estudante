@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-infra:
-    name: Testa a Infraestrutura (Docker)
+    name: Testa a Infraestrutura
     runs-on: ubuntu-latest
 
     steps:
@@ -17,3 +17,14 @@ jobs:
 
       - name: Testa o Build dos Contêineres
         run: docker compose build
+
+      - name: Checa sintaxe do Python
+        run: |
+          pip install flake8
+          flake8 ./backend --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Checa sintaxe do Next.js
+        run: |
+          cd frontend
+          npm install
+          npm run lint --if-present
