@@ -1,0 +1,19 @@
+name: CI Pipeline - Carteira Estudante
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-infra:
+    name: Testa a Infraestrutura (Docker)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Testa o Build dos Contêineres
+        run: docker compose build
