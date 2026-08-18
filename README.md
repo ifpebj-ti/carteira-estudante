@@ -40,7 +40,7 @@ Para acompanhar o andamento do desenvolvimento, consultar a estrutura técnica e
 
 - 📖 **Wiki do Projeto:** [Wiki](https://github.com/ifpebj-ti/carteira-estudante/wiki)  
 - 🧠 **Sprint Report:** [Acessar Apresentação no Canva](https://www.canva.com/design/DAHRXVlkBac/6a_kkPh-dPgYU30oEOfxBA/edit)    
-- 🎨 **Protótipos das Telas:** [](#)
+- 🎨 **Protótipos das Telas:** [Acessar Design no Visily](https://app.visily.ai/projects/9cf09f6d-b7e1-4075-84bd-d1164532fd8b/boards/2696481)
 
 ---
 
