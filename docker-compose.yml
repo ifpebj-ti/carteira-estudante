@@ -1,19 +1,22 @@
 services:
-  # 1. Banco de Dados
   db:
     image: postgres:15-alpine
     container_name: carteira_db
     restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
-      POSTGRES_DB: carteira_estudante
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ifpe123
+      POSTGRES_DB: carteira_estudantil
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d carteira_estudantil"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # 2. Back-end
   backend:
     build: 
       context: ./backend
@@ -23,13 +26,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://admin:admin123@db:5432/carteira_estudante
+      - DATABASE_URL=postgresql://postgres:ifpe123@db:5432/carteira_estudantil
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - ./backend:/app
 
-  # 3. Front-end
   frontend:
     build:
       context: ./frontend
