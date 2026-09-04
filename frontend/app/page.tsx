@@ -33,7 +33,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex w-1/2 relative bg-primary-900 text-white overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80" 
+            src="/ifpe_belo_jardim.jpeg" 
             alt="Campus entrance" 
             className="w-full h-full object-cover opacity-30 mix-blend-overlay"
           />
