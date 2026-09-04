@@ -1,0 +1,5 @@
+# Falsos positivos retidos nas camadas inferiores da imagem base python:3.11-slim
+GHSA-6v7p-g79w-8964
+CVE-2025-47273
+CVE-2026-23949
+CVE-2026-24049
