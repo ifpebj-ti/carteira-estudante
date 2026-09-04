@@ -1,12 +1,36 @@
-import { Contact, ShieldCheck, CheckCircle2, Lock } from "lucide-react";
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import { Contact, ShieldCheck, CheckCircle2, Lock, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const { login, isLoading } = useAuth();
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    try {
+      await login(email, password);
+      router.push('/aluno');
+    } catch (err) {
+      // Generic error as per security guidelines
+      setError('Credenciais inválidas ou erro no servidor. Tente novamente.');
+    }
+  };
+
   return (
     <div className="min-h-screen flex w-full">
       {/* Left Column - Branding (Hidden on mobile) */}
       <div className="hidden lg:flex w-1/2 relative bg-primary-900 text-white overflow-hidden">
-        {/* Background Image (Placeholder) */}
         <div className="absolute inset-0 z-0">
           <img 
             src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80" 
@@ -15,7 +39,6 @@ export default function LoginPage() {
           />
         </div>
         
-        {/* Content */}
         <div className="relative z-10 p-12 flex flex-col justify-center h-full max-w-xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm border border-white/30">
@@ -51,7 +74,6 @@ export default function LoginPage() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-8">
           
-          {/* Header */}
           <div>
             <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Acesse sua conta</h2>
             <p className="mt-2 text-sm text-slate-600">
@@ -59,25 +81,25 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Form */}
-          <form className="space-y-6" action="/aluno">
-            <div className="space-y-4">
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor="email">
-                  E-mail ou matrícula
-                </label>
-                <div className="relative">
-                  <input
-                    id="email"
-                    type="text"
-                    required
-                    placeholder="seu.email@exemplo.com.br"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                  />
-                  <Contact className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                </div>
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {error && (
+              <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                {error}
               </div>
+            )}
+
+            <div className="space-y-4">
+              <Input
+                id="email"
+                type="text"
+                required
+                label="E-mail ou matrícula"
+                placeholder="seu.email@exemplo.com.br"
+                icon={<Contact className="w-5 h-5" />}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
 
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -88,18 +110,16 @@ export default function LoginPage() {
                     Esqueci minha senha
                   </a>
                 </div>
-                <div className="relative">
-                  <input
-                    id="password"
-                    type="password"
-                    required
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                  />
-                  <Lock className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  icon={<Lock className="w-5 h-5" />}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
               </div>
-
             </div>
 
             <div className="flex items-center">
@@ -114,12 +134,9 @@ export default function LoginPage() {
               </label>
             </div>
 
-            <button
-              type="submit"
-              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
-            >
-              Entrar
-            </button>
+            <Button type="submit" fullWidth disabled={isLoading}>
+              {isLoading ? 'Entrando...' : 'Entrar'}
+            </Button>
             
             <div className="relative mt-8">
               <div className="absolute inset-0 flex items-center">
@@ -130,13 +147,10 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <button
-              type="button"
-              className="mt-6 w-full flex justify-center items-center gap-3 py-2.5 px-4 border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors"
-            >
+            <Button type="button" variant="outline" fullWidth className="mt-6 gap-3">
               <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
               Entrar com Google
-            </button>
+            </Button>
           </form>
           
           <div className="mt-8 pt-8 text-center">
@@ -149,3 +163,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

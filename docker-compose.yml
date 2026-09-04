@@ -42,7 +42,10 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # Used by the browser (client-side) to reach the API
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # Used by Next.js server (SSR) to reach the API via Docker internal network
+      - INTERNAL_API_URL=http://backend:8000
     depends_on:
       - backend
     volumes:

@@ -1,86 +1,23 @@
 'use client';
 
 import { 
-  LayoutDashboard, Users, ArrowRightLeft, FileText, Settings, 
-  Search, Bell, ChevronDown, Edit, Printer, 
-  ArrowUpRight, ArrowDownRight, Clock, ShieldCheck, Download
+  FileText, Settings, Edit, Printer, 
+  ArrowUpRight, ArrowDownRight, Clock, Users, LayoutDashboard,
+  ShieldCheck, Download
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { Sidebar } from '@/components/layout/Sidebar';
+import { Header } from '@/components/layout/Header';
+import { Button } from '@/components/ui/Button';
 
 export default function AlunoDetailsPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-primary-900 text-white flex flex-col hidden md:flex">
-        <div className="p-6 flex items-center gap-3">
-          <div className="bg-primary-500 p-2 rounded-lg">
-            <LayoutDashboard className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-bold text-lg leading-tight">Carteira de<br/>Estudante</span>
-        </div>
-        
-        <nav className="flex-1 px-4 space-y-2 mt-4">
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-primary-100 hover:bg-primary-800 transition-colors">
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="font-medium text-sm">Dashboard</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary-800 text-white transition-colors">
-            <Users className="w-5 h-5" />
-            <span className="font-medium text-sm">Alunos</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-primary-100 hover:bg-primary-800 transition-colors">
-            <ArrowRightLeft className="w-5 h-5" />
-            <span className="font-medium text-sm">Movimentações</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-primary-100 hover:bg-primary-800 transition-colors">
-            <FileText className="w-5 h-5" />
-            <span className="font-medium text-sm">Relatórios</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-primary-100 hover:bg-primary-800 transition-colors">
-            <Settings className="w-5 h-5" />
-            <span className="font-medium text-sm">Configurações</span>
-          </a>
-        </nav>
-
-        <div className="p-6 mt-auto">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary-800 flex items-center justify-center font-bold">
-              AD
-            </div>
-            <div>
-              <p className="text-sm font-semibold">Adm. Geral</p>
-              <p className="text-xs text-primary-300">admin@belojardim.ifpe.gov.br</p>
-            </div>
-          </div>
-        </div>
-      </aside>
+      <Sidebar />
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* Top Header */}
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-          <div className="relative w-96">
-            <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input 
-              type="text" 
-              placeholder="Buscar alunos ou carteiras..." 
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all"
-            />
-          </div>
-          <div className="flex items-center gap-6">
-            <button className="relative text-slate-500 hover:text-slate-700">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
-            <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
-              <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-sm">
-                A
-              </div>
-              <span className="text-sm font-medium text-slate-700">Adm Central</span>
-              <ChevronDown className="w-4 h-4 text-slate-400" />
-            </div>
-          </div>
-        </header>
+        <Header />
 
         {/* Scrollable Page Content */}
         <div className="flex-1 overflow-auto p-8">
@@ -107,12 +44,12 @@ export default function AlunoDetailsPage() {
             </div>
             
             <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition-colors">
+              <Button variant="outline" className="gap-2">
                 <Edit className="w-4 h-4" /> Editar Dados
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 transition-colors shadow-sm">
+              </Button>
+              <Button className="gap-2">
                 <Printer className="w-4 h-4" /> Imprimir Carteira
-              </button>
+              </Button>
             </div>
           </div>
 
