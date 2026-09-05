@@ -22,7 +22,7 @@ Esta aplicação substituirá métodos analógicos, garantindo maior agilidade n
 O projeto foi construído utilizando as seguintes tecnologias:
 
 * **Frontend:** Next.js, TypeScript.
-* **Backend:** Python, FastAPI e SQLAlchemy.
+* **Backend:** Python.
 * **Banco de Dados:** PostgreSQL.
 * **Outros** Docker, GitHub Actions, Canva e VIsily.
 
