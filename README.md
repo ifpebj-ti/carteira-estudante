@@ -19,8 +19,13 @@ Esta aplicação substituirá métodos analógicos, garantindo maior agilidade n
 
 ## 🛠️ Tecnologias Utilizadas
 
-> 🚧 **A definir** 🚧
-> As stacks de Frontend, Backend, Banco de Dados, Infraestrutura e Design serão definidas e documentadas nas próximas sprints pela equipe.
+O projeto foi construído utilizando as seguintes tecnologias:
+
+* **Frontend:** Next.js, TypeScript.
+* **Backend:** Python, FastAPI e SQLAlchemy.
+* **Banco de Dados:** PostgreSQL.
+* **Outros** Docker, GitHub Actions, Canva e VIsily.
+
 
 ---
 
