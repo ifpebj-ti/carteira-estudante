@@ -30,7 +30,7 @@ jobs:
       - name: Checa sintaxe do Next.js
         run: |
           cd frontend
-          npm install --legacy-peer-deps
+          npm install
           npm run lint --if-present
 
       - name: Executa Testes do Backend
