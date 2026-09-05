@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build-infra:
     name: Testa a Infraestrutura
@@ -49,3 +53,19 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
           trivyignores: '.github/.trivyignore'
+      
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push da Imagem para o GHCR
+        run: |
+          # Transforma o nome do dono do repositório em minúsculas (exigência do Docker)
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          
+          # Tagueia e envia a imagem
+          docker tag carteira-backend:latest ghcr.io/$REPO_OWNER/carteira-backend:latest
+          docker push ghcr.io/$REPO_OWNER/carteira-backend:latest
