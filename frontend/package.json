@@ -8,10 +8,10 @@
   },
   "dependencies": {
     "lucide-react": "^0.378.0",
-    "next": "latest",
+    "next": "^14.2.3",
     "qrcode.react": "^3.1.0",
-    "react": "latest",
-    "react-dom": "latest"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
