@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Routes that don't require authentication
-const publicRoutes = ['/'];
+const publicRoutes = ['/', '/admin/movimentacoes', '/admin/aluno'];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
