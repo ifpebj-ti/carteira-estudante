@@ -50,3 +50,6 @@ yarn-error.log*
 
 # Antigravity Brain / Temp
 .gemini/
+
+# AI Context files
+ai_context*.md
