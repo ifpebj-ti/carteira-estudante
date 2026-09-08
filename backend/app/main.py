@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(alunos_router, prefix="/api/v1")
 
+
 @app.get(
     "/",
     summary="Status da API",
@@ -38,5 +39,5 @@ def root():
         "status": "online",
         "message": f"{settings.PROJECT_NAME} está em execução.",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
     }
