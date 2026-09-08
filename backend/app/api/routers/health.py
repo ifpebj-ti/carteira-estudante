@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
 from app.core.database import get_db
 
 router = APIRouter(tags=["Health Check"])
@@ -17,7 +18,7 @@ def health_check(db: Session = Depends(get_db)):
         return {
             "status": "ok",
             "database": "connected",
-            "message": "API e banco de dados operando normalmente."
+            "message": "API e banco de dados operando normalmente.",
         }
     except Exception as exc:
         raise HTTPException(
@@ -25,6 +26,6 @@ def health_check(db: Session = Depends(get_db)):
             detail={
                 "status": "error",
                 "database": "disconnected",
-                "message": f"Falha na conexão com o banco de dados: {str(exc)}"
-            }
+                "message": f"Falha na conexão com o banco de dados: {str(exc)}",
+            },
         )

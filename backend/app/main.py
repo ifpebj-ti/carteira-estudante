@@ -1,4 +1,5 @@
 from fastapi import FastAPI, status
+
 from app.api.routers.health import router as health_router
 from app.core.config import settings
 
@@ -13,6 +14,7 @@ app = FastAPI(
 
 app.include_router(health_router)
 
+
 @app.get(
     "/",
     summary="Status da API",
@@ -25,5 +27,5 @@ def root():
         "status": "online",
         "message": f"{settings.PROJECT_NAME} está em execução.",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
     }
