@@ -5,18 +5,19 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
-from app.core.database import SessionLocal, engine, Base
-from app.models.usuario import UsuarioSistema
+
+from app.core.database import Base, SessionLocal, engine
 from app.models.aluno import Aluno
 from app.models.movimentacao import MovimentacaoPortaria
-from app.core.config import settings
+from app.models.usuario import UsuarioSistema
+
 
 def seed():
     print("Criando tabelas no banco de dados...")
     Base.metadata.create_all(bind=engine)
-    
+
     db: Session = SessionLocal()
-    
+
     # Verifica se já existe
     aluno = db.query(Aluno).filter(Aluno.matricula == "2024010582").first()
     if aluno:
@@ -25,13 +26,13 @@ def seed():
         return
 
     print("Inserindo dados de teste...")
-    
+
     # Criar Operador
     operador = UsuarioSistema(
         nome="Admin Julia",
         login="admin.julia",
         senha_hash="hash_ficticio",
-        perfil="PORTARIA"
+        perfil="PORTARIA",
     )
     db.add(operador)
     db.commit()
@@ -55,22 +56,17 @@ def seed():
 
     # Criar Movimentações
     mov1 = MovimentacaoPortaria(
-        aluno_id=aluno.id,
-        usuario_id=operador.id,
-        tipo="ENTRADA"
+        aluno_id=aluno.id, usuario_id=operador.id, tipo="ENTRADA"
     )
-    mov2 = MovimentacaoPortaria(
-        aluno_id=aluno.id,
-        usuario_id=operador.id,
-        tipo="SAIDA"
-    )
-    
+    mov2 = MovimentacaoPortaria(aluno_id=aluno.id, usuario_id=operador.id, tipo="SAIDA")
+
     db.add(mov1)
     db.add(mov2)
     db.commit()
-    
+
     print("Banco populado com sucesso!")
     db.close()
+
 
 if __name__ == "__main__":
     seed()

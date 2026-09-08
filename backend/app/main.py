@@ -1,4 +1,5 @@
 from fastapi import FastAPI, status
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routers.alunos import router as alunos_router
 from app.api.routers.health import router as health_router
@@ -12,8 +13,6 @@ app = FastAPI(
     ),
     version="1.0.0",
 )
-
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
