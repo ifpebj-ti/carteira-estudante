@@ -22,10 +22,14 @@ jobs:
       - name: Testa o Build dos Contêineres
         run: docker compose build
 
-      - name: Checa sintaxe do Python
-        run: |
-          pip install flake8
-          flake8 ./backend --count --select=E9,F63,F7,F82 --show-source --statistics
+      - name: Inicia os Contêineres
+        run: docker compose up -d db backend
+
+      - name: Aguarda Banco de Dados
+        run: sleep 10
+
+      - name: Checa qualidade do Python (Ruff)
+        run: docker compose exec backend ruff check .
 
       - name: Checa sintaxe do Next.js
         run: |
@@ -34,11 +38,7 @@ jobs:
           npm run lint --if-present
 
       - name: Executa Testes do Backend
-        run: |
-          cd backend
-          pip install -r requirements.txt
-          pip install pytest httpx
-          pytest
+        run: docker compose exec backend pytest
 
       - name: Build da Imagem Docker
         run: docker build -t carteira-backend:latest ./backend
