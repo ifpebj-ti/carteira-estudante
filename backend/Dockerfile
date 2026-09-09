@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir --upgrade pip && pip uninstall -y setuptools
+RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools* /usr/local/lib/python3.11/site-packages/pkg_resources*
 
 # Copy pyproject.toml and uv.lock to install dependencies
 COPY pyproject.toml uv.lock ./

@@ -6,6 +6,9 @@ resolution-markers = [
     "python_full_version < '3.12' or sys_platform != 'emscripten'",
 ]
 
+[manifest]
+overrides = [{ name = "msgpack", specifier = ">=1.2.1" }]
+
 [[package]]
 name = "annotated-doc"
 version = "0.0.5"
