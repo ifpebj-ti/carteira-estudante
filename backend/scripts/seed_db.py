@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import Base, SessionLocal, engine
 from app.models.aluno import Aluno
+from app.models.enums import MovementType
 from app.models.movimentacao import MovimentacaoPortaria
 from app.models.usuario import UsuarioSistema
 
@@ -55,10 +56,13 @@ def seed():
     db.refresh(aluno)
 
     # Criar Movimentações
-    mov1 = MovimentacaoPortaria(
-        aluno_id=aluno.id, usuario_id=operador.id, tipo="ENTRADA"
-    )
-    mov2 = MovimentacaoPortaria(aluno_id=aluno.id, usuario_id=operador.id, tipo="SAIDA")
+    if not db.query(MovimentacaoPortaria).first():
+        mov1 = MovimentacaoPortaria(
+            aluno_id=aluno.id, usuario_id=operador.id, tipo=MovementType.ENTRADA
+        )
+        mov2 = MovimentacaoPortaria(
+            aluno_id=aluno.id, usuario_id=operador.id, tipo=MovementType.SAIDA
+        )
 
     db.add(mov1)
     db.add(mov2)

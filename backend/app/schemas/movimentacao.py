@@ -3,9 +3,11 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models.enums import MovementType
+
 
 class MovimentacaoBase(BaseModel):
-    tipo: str
+    tipo: MovementType
 
 
 class MovimentacaoCreate(MovimentacaoBase):
@@ -31,6 +33,6 @@ class ScanRequest(BaseModel):
 class ScanResponse(BaseModel):
     student_name: str
     student_photo_url: Optional[str] = None
-    movement_type: str
+    movement_type: MovementType
     status: bool
     created_at: datetime
