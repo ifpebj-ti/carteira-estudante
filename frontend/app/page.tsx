@@ -96,7 +96,6 @@ export default function LoginPage() {
                 required
                 label="E-mail ou matrícula"
                 placeholder="seu.email@exemplo.com.br"
-                icon={<Contact className="w-5 h-5" />}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -115,7 +114,6 @@ export default function LoginPage() {
                   type="password"
                   required
                   placeholder="••••••••"
-                  icon={<Lock className="w-5 h-5" />}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
