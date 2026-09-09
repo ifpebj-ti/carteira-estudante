@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir --upgrade "wheel>=0.46.2" "jaraco.context>=6.1.0"
+RUN pip install --no-cache-dir --upgrade pip setuptools
 
 # Copy pyproject.toml and uv.lock to install dependencies
 COPY pyproject.toml uv.lock ./
