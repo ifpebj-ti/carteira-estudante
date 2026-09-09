@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir --upgrade pip "setuptools>=78.1.1"
+RUN pip install --no-cache-dir --upgrade pip && pip uninstall -y setuptools
 
 # Copy pyproject.toml and uv.lock to install dependencies
 COPY pyproject.toml uv.lock ./
