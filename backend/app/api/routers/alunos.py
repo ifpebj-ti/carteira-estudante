@@ -14,8 +14,7 @@ def get_aluno_by_matricula(matricula: str, db: Session = Depends(get_db)):
     aluno = db.query(Aluno).filter(Aluno.matricula == matricula).first()
     if not aluno:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Aluno não encontrado"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Aluno não encontrado"
         )
 
     movs_response = []
@@ -46,5 +45,5 @@ def get_aluno_by_matricula(matricula: str, db: Session = Depends(get_db)):
         status=aluno.status,
         qr_code_hash=aluno.qr_code_hash,
         created_at=aluno.created_at,
-        movimentacoes=movs_response
+        movimentacoes=movs_response,
     )
