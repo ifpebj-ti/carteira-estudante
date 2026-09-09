@@ -9,7 +9,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
 
 COPY requirements.txt .
 
-RUN pip install --upgrade pip
+RUN pip install --upgrade pip setuptools wheel jaraco.context msgpack
 RUN pip install -U --no-cache-dir -r requirements.txt
 
 COPY . .
