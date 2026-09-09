@@ -15,6 +15,8 @@ RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools* /usr/local/lib/py
 # Copy pyproject.toml and uv.lock to install dependencies
 COPY pyproject.toml uv.lock ./
 
+ENV UV_LINK_MODE=copy
+
 # Sincroniza as dependências usando uv (cria o venv automaticamente)
 # Utiliza --frozen para garantir que o que está no uv.lock seja estritamente respeitado
 RUN uv sync --frozen --no-cache
