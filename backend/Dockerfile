@@ -17,6 +17,9 @@ COPY pyproject.toml uv.lock ./
 # Utiliza --frozen para garantir que o que está no uv.lock seja estritamente respeitado
 RUN uv sync --frozen --no-cache
 
+# Coloca os binários do venv no PATH para o ruff e pytest funcionarem nativamente
+ENV PATH="/app/.venv/bin:$PATH"
+
 # Copy the rest of the application
 COPY . .
 
