@@ -9,6 +9,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { useState, useEffect } from 'react';
 import { api } from '@/services/api';
+import { Sidebar } from '@/components/layout/Sidebar';
+import { Header } from '@/components/layout/Header';
 
 // Interface matching AlunoDetailResponse
 interface Movimentacao {
