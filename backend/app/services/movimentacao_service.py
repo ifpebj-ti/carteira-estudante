@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.aluno import Aluno
+from app.models.enums import MovementType
 from app.models.movimentacao import MovimentacaoPortaria
 
 
@@ -26,7 +27,7 @@ def determine_next_movement_type(student_id: int, db: Session) -> str:
         .first()
     )
 
-    if last_movement and last_movement.tipo == "ENTRADA":
-        return "SAIDA"
+    if last_movement and last_movement.tipo == MovementType.ENTRADA:
+        return MovementType.SAIDA
 
-    return "ENTRADA"
+    return MovementType.ENTRADA

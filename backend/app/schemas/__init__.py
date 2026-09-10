@@ -5,6 +5,8 @@ from app.schemas.movimentacao import (
     MovimentacaoBase,
     MovimentacaoCreate,
     MovimentacaoResponse,
+    ScanRequest,
+    ScanResponse,
 )
 from app.schemas.usuario import UsuarioBase, UsuarioResponse
 
@@ -18,4 +20,6 @@ __all__ = [
     "MovimentacaoBase",
     "MovimentacaoCreate",
     "MovimentacaoResponse",
+    "ScanRequest",
+    "ScanResponse",
 ]
