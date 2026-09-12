@@ -20,11 +20,11 @@ ENV UV_PROJECT_ENVIRONMENT="/opt/venv"
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv sync --frozen --no-install-project --no-dev --no-cache
+RUN uv sync --frozen --no-install-project --no-cache
 
 COPY . .
 
-RUN uv sync --frozen --no-dev --no-cache
+RUN uv sync --frozen --no-cache
 
 # ==========================================
 # ESTÁGIO 2: Runtime 
