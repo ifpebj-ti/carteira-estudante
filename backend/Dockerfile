@@ -1,6 +1,8 @@
-FROM python:3.11-slim
+# ==========================================
+# ESTÁGIO 1: Builder
+# ==========================================
+FROM python:3.11-slim AS builder
 
-# Copy the official uv executable
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
@@ -10,24 +12,38 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools* /usr/local/lib/python3.11/site-packages/pkg_resources*
+ENV UV_PYTHON_DOWNLOADS=never
+ENV UV_LINK_MODE=copy
+ENV UV_COMPILE_BYTECODE=1
 
-# Copy pyproject.toml and uv.lock to install dependencies
+ENV UV_PROJECT_ENVIRONMENT="/opt/venv"
+
 COPY pyproject.toml uv.lock ./
 
-ENV UV_LINK_MODE=copy
+RUN uv sync --frozen --no-install-project --no-cache
 
-# Sincroniza as dependências usando uv (cria o venv automaticamente)
-# Utiliza --frozen para garantir que o que está no uv.lock seja estritamente respeitado
+COPY . .
+
 RUN uv sync --frozen --no-cache
 
-# Coloca os binários do venv no PATH para o ruff e pytest funcionarem nativamente
-ENV PATH="/app/.venv/bin:$PATH"
+# ==========================================
+# ESTÁGIO 2: Runtime 
+# ==========================================
+FROM python:3.11-slim
 
-# Copy the rest of the application
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/lib/python3.11/site-packages/setuptools* /usr/local/lib/python3.11/site-packages/pkg_resources*
+
+COPY --from=builder /opt/venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
+
 COPY . .
 
 EXPOSE 8000
 
-# Executa o servidor através do uv run (que utiliza o venv criado pelo uv sync)
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
