@@ -1,12 +1,38 @@
 from fastapi.testclient import TestClient
 
+from app.models.aluno import Aluno
 from app.models.enums import MovementType
+from app.models.usuario import UsuarioSistema
 from app.services.qr_crypto_service import generate_qr_token
 
 
 def test_scan_qr_code_success(client: TestClient, db_session):
-    # Assume Aluno 1 exists and is ACTIVE (mocked or from seed)
-    # The seed db creates Aluno ID 1 and Usuario ID 1
+    # Setup test data
+    aluno = db_session.query(Aluno).filter(Aluno.id == 1).first()
+    if not aluno:
+        aluno = Aluno(
+            id=1,
+            matricula="TEST1234",
+            nome_completo="Test Student",
+            curso="TI",
+            senha_hash="hash",
+            qr_code_hash="qr",
+        )
+        db_session.add(aluno)
+
+    operador = db_session.query(UsuarioSistema).filter(UsuarioSistema.id == 1).first()
+    if not operador:
+        operador = UsuarioSistema(
+            id=1,
+            nome="Operador Test",
+            login="op@test.com",
+            senha_hash="hash",
+            perfil="PORTARIA",
+        )
+        db_session.add(operador)
+
+    db_session.commit()
+
     # We generate a valid JWT for Aluno 1
     token = generate_qr_token(aluno_id=1)
 
