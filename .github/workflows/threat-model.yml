@@ -1,0 +1,41 @@
+name: Modelagem de Ameaças (OWASP pytm)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  pytm-security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependências de sistema (Graphviz para os gráficos)
+        run: sudo apt-get update && sudo apt-get install -y graphviz
+
+      - name: Instalar OWASP pytm
+        run: pip install pytm
+
+      - name: Executar pytm e gerar relatórios
+        run: |
+          # 1. Gera o relatório completo de ameaças usando nosso template
+          python .github/security/threat_model.py --report .github/security/template.md > threat_report.md
+          
+          # 2. Gera o Diagrama de Fluxo de Dados (DFD) em imagem PNG
+          python .github/security/threat_model.py --dfd | dot -Tpng -o arquitetura_dfd.png
+
+      - name: Salvar Relatórios no GitHub (Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-threat-model-report
+          path: |
+            threat_report.md
+            arquitetura_dfd.png
