@@ -32,7 +32,6 @@ def seed():
     operador = UsuarioSistema(
         nome="Admin Julia",
         login="admin.julia",
-        senha_hash="hash_ficticio",
         perfil="PORTARIA",
     )
     db.add(operador)
@@ -47,7 +46,6 @@ def seed():
         modalidade="Superior",
         idade=26,
         email="rs1@discente.ifpe.edu.br",
-        senha_hash="hash_ficticio",
         qr_code_hash="2024010582-ricardo-ativo",
         status=True,
     )

@@ -15,7 +15,6 @@ def test_scan_qr_code_success(client: TestClient, db_session):
             matricula="TEST1234",
             nome_completo="Test Student",
             curso="TI",
-            senha_hash="hash",
             qr_code_hash="qr",
         )
         db_session.add(aluno)
@@ -26,7 +25,6 @@ def test_scan_qr_code_success(client: TestClient, db_session):
             id=1,
             nome="Operador Test",
             login="op@test.com",
-            senha_hash="hash",
             perfil="PORTARIA",
         )
         db_session.add(operador)
