@@ -9,9 +9,9 @@ from app.main import app
 def create_test_database():
     import app.models  # noqa: F401
 
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
-    # Base.metadata.drop_all(bind=engine) # Keep tables for manual inspection if needed
 
 
 @pytest.fixture

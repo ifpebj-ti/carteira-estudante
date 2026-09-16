@@ -20,8 +20,8 @@ def test_decode_invalid_qr_token():
     with pytest.raises(HTTPException) as excinfo:
         decode_qr_token("invalid.token.string")
 
-    assert excinfo.value.status_code == 400
-    assert excinfo.value.detail == "QR Code expired or invalid."
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.detail == "Forged or invalid QR Code."
 
 
 def test_decode_expired_qr_token(monkeypatch):
@@ -37,5 +37,5 @@ def test_decode_expired_qr_token(monkeypatch):
     with pytest.raises(HTTPException) as excinfo:
         decode_qr_token(token)
 
-    assert excinfo.value.status_code == 400
-    assert excinfo.value.detail == "QR Code expired or invalid."
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.detail == "QR Code expired. Please generate a new one."

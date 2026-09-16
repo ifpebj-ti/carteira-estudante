@@ -1,5 +1,6 @@
 import datetime
 
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -54,7 +55,7 @@ def scan_qr_code(
         )
 
     # 4. Determine Movement (Entrada/Saída)
-    movement_type = determine_next_movement_type(aluno.id, db)
+    movement_type = determine_next_movement_type(aluno, db)
 
     # 5. Register Movement
     nova_movimentacao = MovimentacaoPortaria(

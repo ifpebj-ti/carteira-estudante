@@ -16,18 +16,24 @@ def validate_student_status(student: Aluno) -> None:
         )
 
 
-def determine_next_movement_type(student_id: int, db: Session) -> str:
+def determine_next_movement_type(student: Aluno, db: Session) -> str:
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
     last_movement = (
         db.query(MovimentacaoPortaria)
-        .filter(MovimentacaoPortaria.aluno_id == student_id)
+        .filter(MovimentacaoPortaria.aluno_id == student.id)
         .filter(MovimentacaoPortaria.data_hora >= today)
         .order_by(MovimentacaoPortaria.data_hora.desc())
         .first()
     )
 
-    if last_movement and last_movement.tipo == MovementType.ENTRADA:
+    if last_movement:
+        if last_movement.tipo == MovementType.ENTRADA:
+            return MovementType.SAIDA
+        return MovementType.ENTRADA
+
+    # Primeiro movimento do dia depende se o aluno mora no campus
+    if student.is_interno:
         return MovementType.SAIDA
 
     return MovementType.ENTRADA
