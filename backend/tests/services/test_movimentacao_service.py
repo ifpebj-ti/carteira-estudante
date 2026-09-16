@@ -26,13 +26,24 @@ def test_validate_student_status_inactive():
     assert "inativa" in exc_info.value.detail
 
 
-def test_determine_next_movement_type_first_access():
+def test_determine_next_movement_type_first_access_externo():
     db_mock = MagicMock()
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
     mock_query.order_by.return_value.first.return_value = None
 
-    movement_type = determine_next_movement_type(1, db_mock)
+    student = Aluno(id=1, is_interno=False)
+    movement_type = determine_next_movement_type(student, db_mock)
     assert movement_type == MovementType.ENTRADA
+
+
+def test_determine_next_movement_type_first_access_interno():
+    db_mock = MagicMock()
+    mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
+    mock_query.order_by.return_value.first.return_value = None
+
+    student = Aluno(id=1, is_interno=True)
+    movement_type = determine_next_movement_type(student, db_mock)
+    assert movement_type == MovementType.SAIDA
 
 
 def test_determine_next_movement_type_after_entry():
@@ -41,7 +52,8 @@ def test_determine_next_movement_type_after_entry():
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
     mock_query.order_by.return_value.first.return_value = last_mov
 
-    movement_type = determine_next_movement_type(1, db_mock)
+    student = Aluno(id=1, is_interno=False)
+    movement_type = determine_next_movement_type(student, db_mock)
     assert movement_type == MovementType.SAIDA
 
 
@@ -51,5 +63,6 @@ def test_determine_next_movement_type_after_exit():
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
     mock_query.order_by.return_value.first.return_value = last_mov
 
-    movement_type = determine_next_movement_type(1, db_mock)
+    student = Aluno(id=1, is_interno=False)
+    movement_type = determine_next_movement_type(student, db_mock)
     assert movement_type == MovementType.ENTRADA

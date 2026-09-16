@@ -58,8 +58,8 @@ def test_scan_qr_code_invalid_token(client: TestClient):
         json={"qr_code_hash": "invalid-token", "operator_id": 1},
     )
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "QR Code expired or invalid."
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Forged or invalid QR Code."
 
 
 def test_scan_qr_code_student_not_found(client: TestClient):

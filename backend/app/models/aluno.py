@@ -18,6 +18,7 @@ class Aluno(Base):
     foto_url = Column(String)
     senha_hash = Column(String, nullable=False)
     qr_code_hash = Column(String, unique=True, index=True, nullable=False)
+    is_interno = Column(Boolean, default=False)
     status = Column(Boolean, default=True)  # Soft delete
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
