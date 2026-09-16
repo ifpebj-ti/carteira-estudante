@@ -1,7 +1,8 @@
 import datetime
 
 from fastapi import HTTPException, status
-from jose import JWTError, jwt
+import jwt 
+from jwt.exceptions import InvalidTokenError
 
 from app.core.config import settings
 
@@ -29,7 +30,7 @@ def decode_qr_token(token: str) -> int:
                 detail="Invalid QR Code payload.",
             )
         return int(aluno_id)
-    except JWTError:
+    except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="QR Code expired or invalid.",
