@@ -46,7 +46,7 @@ jobs:
         with:
           target: 'http://localhost:8000'
           fail_action: false
-          artifact_name: 'zap_report_${{ github.run_id }}'
+          allow_issue_writing: false
 
       - name: Configura QEMU (Suporte Multi-arquitetura)
         uses: docker/setup-qemu-action@v3
