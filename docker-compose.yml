@@ -26,7 +26,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://postgres:ifpe123@db:5432/carteira_estudantil
+      - DATABASE_URL=postgresql+psycopg://postgres:ifpe123@db:5432/carteira_estudantil
     depends_on:
       db:
         condition: service_healthy
