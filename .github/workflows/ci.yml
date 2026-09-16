@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   packages: write
+  issues: write
 
 jobs:
   build-infra:
@@ -39,6 +40,12 @@ jobs:
 
       - name: Executa Testes do Backend
         run: docker compose exec backend pytest
+
+      - name: DAST - OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:8000'
+          fail_action: false
 
       - name: Configura QEMU (Suporte Multi-arquitetura)
         uses: docker/setup-qemu-action@v3
