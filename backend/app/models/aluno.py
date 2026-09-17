@@ -16,7 +16,6 @@ class Aluno(Base):
     idade = Column(Integer)
     email = Column(String, unique=True, index=True)
     foto_url = Column(String)
-    senha_hash = Column(String, nullable=False)
     qr_code_hash = Column(String, unique=True, index=True, nullable=False)
     is_interno = Column(Boolean, default=False)
     status = Column(Boolean, default=True)  # Soft delete
