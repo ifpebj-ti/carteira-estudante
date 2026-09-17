@@ -1,83 +1,90 @@
 'use client';
 
-import { ShieldCheck, GraduationCap, Mail, Lock, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen w-full flex flex-col md:flex-row bg-slate-50 overflow-hidden">
+    <div className="min-h-screen w-full flex flex-col md:flex-row bg-slate-900 overflow-x-hidden">
       
-      {/* Lado Esquerdo - Branding (Escondido no celular, ocupa 50% no desktop) */}
-      <div className="hidden md:flex md:w-1/2 bg-primary-900 relative flex-col justify-between p-12 overflow-hidden">
+      {/* Lado Esquerdo - Branding (Visível APENAS no Desktop) */}
+      <div className="hidden md:flex md:w-1/2 bg-primary-900 relative flex-col justify-between p-12 overflow-hidden shrink-0 min-h-screen">
         
-        {/* Imagem de Fundo do Campus com opacidade ajustada e gradiente */}
+        {/* Imagem de Fundo do Campus com opacidade e gradiente */}
         <div 
           className="absolute inset-0 z-0 opacity-60 bg-cover bg-center bg-no-repeat mix-blend-overlay"
           style={{ backgroundImage: "url('/ifpe_belo_jardim.jpeg')" }}
         ></div>
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-primary-900/60 to-primary-950/70"></div>
 
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="bg-white/10 p-2.5 rounded-xl border border-white/20 backdrop-blur-sm">
-            <ShieldCheck className="w-8 h-8 text-primary-300" />
+        {/* Bloco de Identificação */}
+        <div className="relative z-10 flex items-center gap-3.5">
+          <div className="bg-primary-950/40 p-2.5 rounded-2xl border border-white/20 backdrop-blur-md shadow-lg shrink-0">
+            <ShieldCheck className="w-8 h-8 text-primary-200" />
           </div>
-          <span className="text-xl font-bold text-white tracking-wide uppercase">
-            IFPE <span className="text-primary-300 font-medium">Belo Jardim</span>
-          </span>
+          <div>
+            <h1 className="text-white font-bold tracking-wider text-base uppercase leading-tight">
+              CARTEIRA DE ESTUDANTE
+            </h1>
+            <p className="text-primary-200 font-medium text-sm tracking-wide uppercase mt-0.5">
+              IFPE BELO JARDIM
+            </p>
+          </div>
         </div>
 
-        <div className="relative z-10 max-w-md">
-          <h1 className="text-4xl lg:text-5xl font-bold text-white leading-tight mb-6">
-            Gestão Digital de <br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-200 to-emerald-300">
-              Credenciais Estudantis
-            </span>
-          </h1>
-          <p className="text-primary-100/80 text-lg leading-relaxed">
-            Plataforma administrativa para controle de acessos, emissão de carteiras digitais dinâmicas e auditoria de movimentações do campus.
+        {/* Texto descritivo central */}
+        <div className="relative z-10 max-w-md my-auto py-10">
+          <h2 className="text-4xl lg:text-5xl font-bold text-white leading-tight mb-4">
+            Carteira de Estudante
+          </h2>
+          <p className="text-primary-100/80 text-base leading-relaxed">
+            Sistema oficial de gestão de credenciais estudantis do campus. Autenticação institucional segura e controle da movimentação no campus.
           </p>
         </div>
 
-        <div className="relative z-10 flex items-center gap-4 text-primary-300/60 text-sm font-medium">
-          <GraduationCap className="w-5 h-5" />
-          <span>Sistema de Controle de Acesso Restrito</span>
+        <div className="relative z-10 flex items-center gap-2 text-primary-300/70 text-xs font-medium uppercase tracking-wider">
+          <span>Campus Belo Jardim - PE</span>
         </div>
       </div>
 
-      {/* Lado Direito - Área de Login (Ocupa 100% no celular, 50% no desktop) */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 relative z-10">
+      {/* Lado Direito (ou Tela Inteira no Mobile) - Área do Formulário de Login */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 bg-slate-50 relative z-10 min-h-screen md:min-h-0">
         
-        {/* Header mobile (visível apenas em telas pequenas) */}
-        <div className="md:hidden flex items-center gap-2 mb-10">
-          <div className="bg-primary-900 p-2 rounded-lg">
-            <ShieldCheck className="w-6 h-6 text-white" />
+        {/* Identificação compacta visível apenas no mobile */}
+        <div className="md:hidden flex items-center gap-3 mb-8 w-full max-w-md">
+          <div className="bg-primary-900 p-2.5 rounded-xl text-white shadow-sm shrink-0">
+            <ShieldCheck className="w-6 h-6" />
           </div>
-          <span className="text-lg font-bold text-primary-900 tracking-wide uppercase">
-            IFPE <span className="text-primary-600 font-medium">Belo Jardim</span>
-          </span>
+          <div className="flex flex-col justify-center">
+            <h1 className="text-slate-900 font-bold tracking-tight text-sm uppercase leading-tight">
+              CARTEIRA DE ESTUDANTE
+            </h1>
+            <p className="text-primary-600 font-semibold text-xs tracking-wide uppercase mt-0.5">
+              IFPE BELO JARDIM
+            </p>
+          </div>
         </div>
 
         {/* Cartão Central de Login */}
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 sm:p-10">
           <div className="mb-8 text-center sm:text-left">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Acesso ao Sistema</h2>
+            <h3 className="text-2xl font-bold text-slate-900 mb-2">Acesse sua conta</h3>
             <p className="text-sm text-slate-500">
-              Insira suas credenciais ou utilize sua conta institucional.
+              Utilize suas credenciais institucionais para entrar no sistema.
             </p>
           </div>
 
           <div className="space-y-5">
-
-            {/* Formulário Tradicional de E-mail e Senha */}
+            {/* Formulário Tradicional (Agora vem ANTES do botão do Google) */}
             <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">E-mail Institucional</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">E-mail ou matrícula</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <Mail className="w-5 h-5" />
                   </div>
                   <input 
-                    type="email" 
-                    placeholder="admin@belojardim.ifpe.gov.br" 
+                    type="text" 
+                    placeholder="seu.email@exemplo.com.br" 
                     className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-colors"
                     required
                   />
@@ -87,7 +94,7 @@ export default function LoginPage() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-sm font-medium text-slate-700">Senha</label>
-                  <a href="#" className="text-xs font-semibold text-primary-600 hover:text-primary-700">Esqueceu a senha?</a>
+                  <a href="#" className="text-xs font-semibold text-primary-600 hover:text-primary-700">Esqueci minha senha</a>
                 </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -107,7 +114,7 @@ export default function LoginPage() {
                   type="submit"
                   className="w-full flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm py-3.5 px-4 rounded-xl transition-all duration-200 active:scale-[0.98] shadow-sm shadow-primary-600/20"
                 >
-                  Entrar no Sistema
+                  Entrar
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -116,11 +123,11 @@ export default function LoginPage() {
             {/* Divisor "OU" */}
             <div className="relative flex items-center py-1">
               <div className="flex-grow border-t border-slate-200"></div>
-              <span className="flex-shrink-0 mx-4 text-xs text-slate-400 uppercase tracking-wider font-medium">ou</span>
+              <span className="flex-shrink-0 mx-4 text-xs text-slate-400 uppercase tracking-wider font-medium">OU</span>
               <div className="flex-grow border-t border-slate-200"></div>
             </div>
 
-            {/* Botão de Login com o Google */}
+            {/* Botão de Login com o Google*/}
             <button 
               className="w-full relative flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:border-primary-500 hover:bg-slate-50 text-slate-700 font-semibold text-sm py-3.5 px-4 rounded-xl transition-all duration-200 active:scale-[0.98]"
             >
@@ -130,13 +137,13 @@ export default function LoginPage() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
               </svg>
-              Continuar com Google
+              Entrar com Google
             </button>
           </div>
         </div>
 
         <p className="text-xs text-slate-400 mt-8 text-center">
-          &copy; {new Date().getFullYear()} Instituto Federal de Pernambuco.<br className="sm:hidden" /> Todos os direitos reservados.
+          &copy; {new Date().getFullYear()} Instituto Federal de Pernambuco. Todos os direitos reservados.
         </p>
       </div>
 
