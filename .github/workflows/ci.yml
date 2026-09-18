@@ -32,6 +32,11 @@ jobs:
       - name: Checa qualidade do Python (Ruff)
         run: docker compose exec backend ruff check .
 
+      - name: SAST - Segurança Estática (Bandit)
+        run: |
+          pip install bandit
+          bandit -r backend/app/ -ll -ii
+
       - name: Checa sintaxe do Next.js
         run: |
           cd frontend
