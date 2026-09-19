@@ -1,3 +1,9 @@
+[![CI Pipeline](https://github.com/ifpebj-ti/carteira-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/ifpebj-ti/carteira-backend/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+
 # 📘 Carteira do Estudante
 
 ---
