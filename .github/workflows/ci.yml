@@ -32,6 +32,9 @@ jobs:
       - name: Checa qualidade do Python (Ruff)
         run: docker compose exec backend ruff check .
 
+      - name: SAST - Segurança Estática (Bandit)
+        run: docker compose exec backend sh -c "pip install bandit && bandit -r app/ -ll -ii"
+
       - name: Checa sintaxe do Next.js
         run: |
           cd frontend
@@ -49,10 +52,10 @@ jobs:
           allow_issue_writing: false
 
       - name: Configura QEMU (Suporte Multi-arquitetura)
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Configura Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build da Imagem (Local) para o Trivy
         uses: docker/build-push-action@v5
