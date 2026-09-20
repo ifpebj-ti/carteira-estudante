@@ -91,6 +91,8 @@ jobs:
         with:
           images: ghcr.io/${{ env.REPO_OWNER }}/carteira-backend
           tags: |
+            type=ref,event=branch
+            type=ref,event=pr
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
 
@@ -99,6 +101,6 @@ jobs:
         with:
           context: ./backend
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
