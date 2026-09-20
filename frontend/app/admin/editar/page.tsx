@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { 
   Menu, X, Search, Camera, Trash2, Save, AlertCircle, 
-  ShieldCheck, Smartphone, CheckCircle, Activity, Image as ImageIcon
+  ShieldCheck, Smartphone, CheckCircle, Image as ImageIcon
 } from 'lucide-react';
 
 // --- COMPONENTES DE LAYOUT ---
