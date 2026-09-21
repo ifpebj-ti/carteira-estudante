@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 
 from app.api.routers.alunos import router as alunos_router
 from app.api.routers.health import router as health_router
@@ -52,3 +53,19 @@ def root():
         "docs": "/docs",
         "health": "/health",
     }
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt():
+    return PlainTextResponse(
+        "User-agent: *\nDisallow: /", headers={"Cache-Control": "public, max-age=86400"}
+    )
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml():
+    return Response(
+        content='<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>',
+        media_type="application/xml",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
