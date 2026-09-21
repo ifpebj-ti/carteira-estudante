@@ -59,7 +59,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Build da Imagem (Local) para o Trivy
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           load: true 
@@ -97,7 +97,7 @@ jobs:
             type=semver,pattern={{version}}
 
       - name: Build Multi-arquitetura e Push para GHCR
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           platforms: linux/amd64,linux/arm64
