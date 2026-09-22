@@ -1,4 +1,4 @@
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routers.alunos import router as alunos_router
@@ -26,6 +26,15 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(alunos_router, prefix="/api/v1")
 app.include_router(movimentacao_router, prefix="/api/v1/movimentacao", tags=["Catraca"])
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
 
 
 @app.get(
