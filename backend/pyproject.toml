@@ -15,7 +15,7 @@ dependencies = [
     "jaraco-context>=6.1.0",
     "msgpack>=1.2.1",
     "pyjwt==2.14.0",
-    "psycopg==3.3.5",
+    "psycopg==3.3.6",
 ]
 
 [dependency-groups]
