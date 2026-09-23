@@ -7,11 +7,14 @@
     "start": "next start"
   },
   "dependencies": {
+    "brace-expansion": "^5.0.12",
+    "ip-address": "^10.7.2",
     "lucide-react": "^1.47.0",
     "next": "^16.3.5",
     "qrcode.react": "^4.2.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "tar": "^7.5.22"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
@@ -22,9 +25,5 @@
     "postcss": "^8.4.38",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2"
-  },"overrides": {
-    "brace-expansion": "^5.0.8",
-    "ip-address": "^10.3.1",
-    "tar": "^7.5.21"
   }
 }
