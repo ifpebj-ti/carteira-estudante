@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   // Security Headers aligned with OWASP guidelines (ai_context_frontend.md)
   async headers() {
     return [
