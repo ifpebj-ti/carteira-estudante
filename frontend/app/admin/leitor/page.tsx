@@ -35,6 +35,7 @@ export default function QrScannerPage() {
     setIsScannerPaused(true);
 
     try {
+      console.log('Sending request to API for token:', token);
       const data = await api<ScanResponse>('/api/v1/movimentacao/scan', {
         method: 'POST',
         body: JSON.stringify({
@@ -43,14 +44,22 @@ export default function QrScannerPage() {
         }),
       });
 
+      console.log('API response:', data);
       if (data.status) {
         setScanStatus('success');
         setScanMessage({
           title: 'Acesso Permitido!',
           subtitle: `${data.student_name} - ${data.movement_type}`,
         });
+      } else {
+        setScanStatus('error');
+        setScanMessage({
+          title: 'Acesso Negado',
+          subtitle: `${data.student_name} - Acesso bloqueado.`,
+        });
       }
     } catch (error: any) {
+      console.error('API Error:', error);
       setScanStatus('error');
       setScanMessage({
         title: 'Acesso Negado',
