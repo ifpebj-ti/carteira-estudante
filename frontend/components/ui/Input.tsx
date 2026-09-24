@@ -2,7 +2,7 @@ import React, { InputHTMLAttributes } from 'react';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
-  icon?: React.ReactNode;
+  icon?: React.ReactNode; // 1. Adicionamos a tipagem do ícone
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -14,16 +14,18 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {label}
           </label>
         )}
-        <div className="relative">
+        <div className="relative flex items-center">
           {icon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <div className="absolute left-3 text-slate-400 flex items-center justify-center">
               {icon}
             </div>
           )}
           <input
             ref={ref}
             id={id}
-            className={`w-full rounded-lg border border-slate-300 bg-white ${icon ? 'pl-10' : 'px-4'} py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm ${className}`}
+            className={`w-full rounded-lg border border-slate-300 bg-white ${
+              icon ? 'pl-10 pr-4' : 'px-4'
+            } py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm ${className}`}
             {...props}
           />
         </div>

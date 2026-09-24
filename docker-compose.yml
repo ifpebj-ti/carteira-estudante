@@ -4,15 +4,16 @@ services:
     container_name: carteira_db
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ifpe123
-      POSTGRES_DB: carteira_estudantil
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d carteira_estudantil"]
+      # A verificação de saúde também precisa da variável para não falhar
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -26,7 +27,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+psycopg://postgres:ifpe123@db:5432/carteira_estudantil
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
     depends_on:
       db:
         condition: service_healthy
@@ -42,15 +44,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Used by the browser (client-side) to reach the API
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      # Used by Next.js server (SSR) to reach the API via Docker internal network
-      - INTERNAL_API_URL=http://backend:8000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - INTERNAL_API_URL=${INTERNAL_API_URL}
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
 
 volumes:
   postgres_data:
