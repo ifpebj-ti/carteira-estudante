@@ -24,11 +24,23 @@ jobs:
       - name: Criar arquivo .env para testes da CI
         run: cp .env.example .env
 
-      - name: Testa o Build dos Contêineres
-        run: docker compose build
+      - name: Configura QEMU (Suporte Multi-arquitetura)
+        uses: docker/setup-qemu-action@v4
+
+      - name: Configura Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build dos Contêineres com Cache (Bake)
+        uses: docker/bake-action@v4
+        with:
+          files: docker-compose.yml
+          load: true
+          set: |
+            *.cache-from=type=gha
+            *.cache-to=type=gha,mode=max
 
       - name: Inicia os Contêineres
-        run: docker compose up -d db backend
+        run: docker compose up -d --no-build db backend
 
       - name: Aguarda Banco de Dados
         run: sleep 10
@@ -61,12 +73,6 @@ jobs:
           target: 'http://localhost:8000'
           fail_action: false
           allow_issue_writing: false
-
-      - name: Configura QEMU (Suporte Multi-arquitetura)
-        uses: docker/setup-qemu-action@v4
-
-      - name: Configura Docker Buildx
-        uses: docker/setup-buildx-action@v4
 
       - name: Build da Imagem (Local) para o Trivy
         uses: docker/build-push-action@v5
