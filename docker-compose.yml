@@ -48,9 +48,6 @@ services:
       - INTERNAL_API_URL=http://backend:8000
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
 
 volumes:
   postgres_data:

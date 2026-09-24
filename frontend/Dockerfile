@@ -13,7 +13,7 @@ RUN npm run build
 FROM node:24-alpine AS runner
 
 WORKDIR /app
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 RUN rm -rf /usr/local/lib/node_modules/npm \
            /usr/local/bin/npm \
