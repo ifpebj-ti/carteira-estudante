@@ -1,7 +1,7 @@
 from app.core.database import SessionLocal
 from app.models.aluno import Aluno
 from app.models.usuario import UsuarioSistema
-from app.services.qr_crypto_service import generate_qr_token
+
 
 def main():
     from app.core.database import engine
