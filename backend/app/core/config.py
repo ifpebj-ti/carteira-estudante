@@ -1,19 +1,17 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 class Settings(BaseSettings):
     PROJECT_NAME: str = "API - Carteira Estudantil IFPE"
     API_V1_STR: str = "/api/v1"
-    DATABASE_URL: str = (
-        "postgresql+psycopg://postgres:ifpe123@db:5432/carteira_estudantil"
-    )
-    SECRET_KEY: str = "super_secret_key_for_dev_only_1234"  # noqa: S105
+    
+    DATABASE_URL: str
+    SECRET_KEY: str
+    
     ALGORITHM: str = "HS256"
     QR_CODE_EXPIRE_SECONDS: int = 180
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
-
 
 settings = Settings()

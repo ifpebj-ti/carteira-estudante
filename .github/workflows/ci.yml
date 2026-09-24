@@ -21,6 +21,9 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v7
 
+      - name: Criar arquivo .env para testes da CI
+        run: cp .env.example .env
+
       - name: Testa o Build dos Contêineres
         run: docker compose build
 
