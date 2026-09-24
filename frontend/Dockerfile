@@ -7,15 +7,14 @@ RUN apk update && apk upgrade
 
 COPY package*.json ./
 
-RUN npm pkg set overrides.tar="7.5.21" \
- && npm pkg set overrides.ip-address="10.3.1" \
- && npm pkg set overrides.brace-expansion="5.0.8"
-
-RUN npm install
+RUN npm ci
 
 COPY . .
 
 RUN npm run build
+
+
+RUN find .next/standalone -type d \( -name "tar" -o -name "ip-address" -o -name "brace-expansion" \) -prune -exec rm -rf '{}' +
 
 # --- ESTÁGIO 2: RUNNER ---
 FROM node:24-alpine AS runner
