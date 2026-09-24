@@ -7,7 +7,11 @@ RUN apk update && apk upgrade
 
 COPY package*.json ./
 
-RUN npm ci
+RUN npm pkg set overrides.tar="7.5.21" \
+ && npm pkg set overrides.ip-address="10.3.1" \
+ && npm pkg set overrides.brace-expansion="5.0.8"
+
+RUN npm install
 
 COPY . .
 
@@ -23,8 +27,6 @@ ENV NODE_ENV production
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-
-RUN find ./node_modules -type d \( -name "tar" -o -name "ip-address" -o -name "brace-expansion" \) -prune -exec rm -rf '{}' +
 
 EXPOSE 3000
 
