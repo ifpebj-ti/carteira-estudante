@@ -24,9 +24,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-RUN rm -rf ./node_modules/tar \
-           ./node_modules/ip-address \
-           ./node_modules/brace-expansion
+RUN find ./node_modules -type d \( -name "tar" -o -name "ip-address" -o -name "brace-expansion" \) -prune -exec rm -rf '{}' +
 
 EXPOSE 3000
 
