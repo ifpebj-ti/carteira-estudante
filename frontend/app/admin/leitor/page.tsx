@@ -1,22 +1,92 @@
 'use client';
 
-import { useState } from 'react';
-import { Camera, History, QrCode, Settings, Bell } from 'lucide-react';
+import { useState, useCallback, useRef } from 'react';
+import { History, QrCode, Settings, Bell, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Scanner } from '@yudiel/react-qr-scanner';
+import { api } from '@/services/api';
+
+type ScanStatus = 'idle' | 'loading' | 'success' | 'error';
+
+interface ScanResponse {
+  status: boolean;
+  student_name: string;
+  movement_type: string;
+}
 
 export default function QrScannerPage() {
-  const [simulated, setSimulated] = useState(false);
+  const [scanStatus, setScanStatus] = useState<ScanStatus>('idle');
+  const [scanMessage, setScanMessage] = useState<{ title: string; subtitle: string } | null>(null);
+  const [isScannerPaused, setIsScannerPaused] = useState(false);
+  
+  // Prevent multiple rapid fires
+  const lastScanTime = useRef<number>(0);
+
+  const handleScan = useCallback(async (detectedCodes: any[]) => {
+    if (detectedCodes.length === 0 || isScannerPaused || scanStatus === 'loading') return;
+    
+    const now = Date.now();
+    if (now - lastScanTime.current < 3000) return; // debounce 3s
+    
+    const token = detectedCodes[0].rawValue;
+    if (!token) return;
+
+    lastScanTime.current = now;
+    setScanStatus('loading');
+    setIsScannerPaused(true);
+
+    try {
+      console.log('Sending request to API for token:', token);
+      const data = await api<ScanResponse>('/api/v1/movimentacao/scan', {
+        method: 'POST',
+        body: JSON.stringify({
+          qr_code_hash: token,
+          operator_id: 1, // Mock temporary operator ID
+        }),
+      });
+
+      console.log('API response:', data);
+      if (data.status) {
+        setScanStatus('success');
+        setScanMessage({
+          title: 'Acesso Permitido!',
+          subtitle: `${data.student_name} - ${data.movement_type}`,
+        });
+      } else {
+        setScanStatus('error');
+        setScanMessage({
+          title: 'Acesso Negado',
+          subtitle: `${data.student_name} - Acesso bloqueado.`,
+        });
+      }
+    } catch (error: any) {
+      console.error('API Error:', error);
+      setScanStatus('error');
+      setScanMessage({
+        title: 'Acesso Negado',
+        subtitle: error.message || 'Token inválido ou expirado.',
+      });
+    }
+
+    // Reset after 3 seconds
+    setTimeout(() => {
+      setScanStatus('idle');
+      setScanMessage(null);
+      setIsScannerPaused(false);
+    }, 3000);
+  }, [isScannerPaused, scanStatus]);
+
+  const handleError = (error: unknown) => {
+    console.error("Camera error:", error);
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-start text-slate-900">
-      
-      {/* Container simulando app mobile */}
       <div className="w-full max-w-md min-h-screen bg-slate-50 flex flex-col shadow-2xl relative justify-between">
         
         {/* Top Bar Mobile (Clara) */}
         <header className="bg-white px-4 py-3 border-b border-slate-200 flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="bg-primary-600 text-white p-1.5 rounded-lg font-bold text-xs">QR</div>
-            {/* Título limpo, sem o "INTERNO" */}
             <span className="font-bold text-slate-800 text-sm block leading-tight">Carteira de Estudante</span>
           </div>
           <div className="flex items-center gap-3 text-slate-500">
@@ -40,46 +110,57 @@ export default function QrScannerPage() {
             <p className="text-xs text-slate-500">Posicione para validação de acesso</p>
           </div>
 
-          {/* Visor simulado da câmera (Mantido escuro para simular a lente) */}
-          <div className="w-full max-w-[300px] h-[340px] bg-slate-900 rounded-3xl border-2 border-primary-500/50 p-4 relative flex flex-col items-center justify-center shadow-lg overflow-hidden group">
+          {/* Visor da Câmera com Yudiel Scanner */}
+          <div className="w-full max-w-[320px] bg-slate-900 rounded-3xl border-2 border-primary-500/50 p-2 relative flex flex-col shadow-lg overflow-hidden group">
             
             {/* Tag AO VIVO */}
-            <div className="absolute top-4 left-4 flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-full text-[10px] font-bold text-emerald-400">
+            <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-full text-[10px] font-bold text-emerald-400">
               <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
               AO VIVO
             </div>
 
-            {/* Mock do QR Code Central no visor */}
-            <div className="relative w-48 h-48 border-2 border-dashed border-primary-400/70 rounded-2xl flex items-center justify-center bg-primary-950/40">
-              <QrCode className="w-28 h-28 text-primary-400/40 animate-pulse" />
-              
-              {simulated && (
-                <div className="absolute inset-0 bg-emerald-500/95 rounded-2xl flex flex-col items-center justify-center text-white p-2 animate-fadeIn backdrop-blur-sm">
-                  <span className="font-bold text-sm">Acesso Permitido!</span>
-                  <span className="text-xs mt-1">João da Silva</span>
+            <div className="relative rounded-2xl overflow-hidden aspect-square bg-black">
+              <Scanner 
+                onScan={handleScan}
+                onError={handleError}
+                paused={isScannerPaused}
+                components={{
+                  finder: false,
+                }}
+                styles={{
+                  container: { width: '100%', height: '100%' },
+                }}
+              />
+
+              {/* Overlays de Loading / Sucesso / Erro */}
+              {scanStatus === 'loading' && (
+                <div className="absolute inset-0 bg-slate-900/80 z-20 flex flex-col items-center justify-center text-white backdrop-blur-sm">
+                  <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                  <span className="font-semibold text-sm">Validando...</span>
+                </div>
+              )}
+
+              {scanStatus === 'success' && scanMessage && (
+                <div className="absolute inset-0 bg-emerald-600/95 z-20 flex flex-col items-center justify-center text-white p-4 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+                  <ShieldCheck className="w-16 h-16 text-emerald-200 mb-2" />
+                  <span className="font-bold text-lg text-center">{scanMessage.title}</span>
+                  <span className="text-sm mt-1 text-emerald-100 text-center font-medium">{scanMessage.subtitle}</span>
+                </div>
+              )}
+
+              {scanStatus === 'error' && scanMessage && (
+                <div className="absolute inset-0 bg-red-600/95 z-20 flex flex-col items-center justify-center text-white p-4 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+                  <ShieldAlert className="w-16 h-16 text-red-200 mb-2" />
+                  <span className="font-bold text-lg text-center">{scanMessage.title}</span>
+                  <span className="text-sm mt-1 text-red-100 text-center font-medium">{scanMessage.subtitle}</span>
                 </div>
               )}
             </div>
 
-            <p className="text-[11px] text-slate-400 mt-5 text-center">
+            <p className="text-[11px] text-slate-400 my-4 text-center">
               Aponte o QR Code para a câmera
             </p>
           </div>
-
-          <p className="text-[11px] text-slate-500 text-center mt-2">
-            Posicione o QR Code dentro da área indicada.
-          </p>
-
-          {/* Botão de Simulação de Leitura */}
-          <button 
-            onClick={() => {
-              setSimulated(true);
-              setTimeout(() => setSimulated(false), 2500);
-            }}
-            className="w-full max-w-[300px] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-600/30 transition-all active:scale-[0.98] text-sm mt-4"
-          >
-            <Camera className="w-5 h-5" /> Simular Leitura
-          </button>
 
         </main>
 

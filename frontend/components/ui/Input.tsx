@@ -14,7 +14,6 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {label}
           </label>
         )}
-        {}
         <div className="relative flex items-center">
           {icon && (
             <div className="absolute left-3 text-slate-400 flex items-center justify-center">
