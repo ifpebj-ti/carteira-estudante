@@ -41,7 +41,7 @@ const AdminSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
         <div className="w-9 h-9 rounded-full bg-white/10 text-white font-bold flex items-center justify-center text-sm border border-white/20 shrink-0">AG</div>
         <div className="overflow-hidden">
           <p className="text-xs font-bold text-white truncate">Adm. Geral</p>
-          <p className="text-[11px] text-primary-200 truncate">admin@belojardim.ifpe.gov.br</p>
+          <p className="text-[11px] text-primary-200 truncate">admin@belojardim.ifpe.edu.br</p>
         </div>
       </div>
     </aside>
@@ -82,11 +82,11 @@ const AdminHeader = ({ onMenuClick }: { onMenuClick: () => void }) => (
 
 // --- DADOS MOCKADOS ---
 const studentsData = [
-  { id: 1, nome: 'João da Silva', curso: 'Engenharia de Computação', matricula: '2023102457', turma: 'EC-2023-A', status: 'Ativo' },
-  { id: 2, nome: 'Maria Oliveira', curso: 'Administração', matricula: '2023102458', turma: 'ADM-2023-B', status: 'Ativo' },
-  { id: 3, nome: 'Pedro Santos', curso: 'Sistemas de Informação', matricula: '2023102459', turma: 'SI-2022-C', status: 'Suspenso' },
-  { id: 4, nome: 'Ana Beatriz Souza', curso: 'Engenharia Civil', matricula: '2023102460', turma: 'CIV-2021-A', status: 'Inativo' },
-  { id: 5, nome: 'Ricardo Oliveira Santos', curso: 'Engenharia de Software', matricula: '2024010582', turma: 'ESW-2024-N', status: 'Ativo' },
+  { id: 1, nome: 'Gustavo Nogueira de Araújo', curso: 'Engenharia de Software', matricula: '2024102457', email: 'gna1@discente.ifpe.edu.br', status: 'Ativo' },
+  { id: 2, nome: 'Maria Oliveira', curso: 'Administração', matricula: '2023102458', email: 'mo1@discente.ifpe.edu.br', status: 'Ativo' },
+  { id: 3, nome: 'Pedro Santos', curso: 'Sistemas de Informação', matricula: '2023102459', email: 'ps1@discente.ifpe.edu.br', status: 'Suspenso' },
+  { id: 4, nome: 'Ana Beatriz Souza', curso: 'Engenharia Civil', matricula: '2023102460', email: 'abs1@discente.ifpe.edu.br', status: 'Inativo' },
+  { id: 5, nome: 'Ricardo Oliveira Santos', curso: 'Engenharia de Software', matricula: '2024010582', email: 'rs1@discente.ifpe.edu.br', status: 'Ativo' },
 ];
 
 export default function StudentListPage() {
@@ -167,7 +167,7 @@ export default function StudentListPage() {
                   </div>
                   <input 
                     type="text" 
-                    placeholder="Nome, CPF ou matrícula..." 
+                    placeholder="Nome, matrícula ou email..." 
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" 
                   />
                 </div>
@@ -205,7 +205,7 @@ export default function StudentListPage() {
                       <th className="py-4 px-6">Nome do Aluno</th>
                       <th className="py-4 px-6">Curso</th>
                       <th className="py-4 px-6">Matrícula</th>
-                      <th className="py-4 px-6">Turma</th>
+                      <th className="py-4 px-6">E-mail Institucional</th>
                       <th className="py-4 px-6">Status</th>
                       <th className="py-4 px-6 text-center">Ações</th>
                     </tr>
@@ -221,7 +221,7 @@ export default function StudentListPage() {
                         <td className="py-3 px-6 font-medium text-slate-900">{student.nome}</td>
                         <td className="py-3 px-6 text-slate-600">{student.curso}</td>
                         <td className="py-3 px-6 text-slate-500 font-mono text-xs">{student.matricula}</td>
-                        <td className="py-3 px-6 text-slate-600">{student.turma}</td>
+                        <td className="py-3 px-6 text-slate-600 font-medium">{student.email}</td>
                         <td className="py-3 px-6">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border ${getStatusStyle(student.status)}`}>
                             {student.status}

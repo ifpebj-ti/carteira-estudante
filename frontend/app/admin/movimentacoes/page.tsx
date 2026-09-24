@@ -45,7 +45,7 @@ export default function MovimentacoesPage() {
           <div className="w-9 h-9 rounded-full bg-white/10 text-white font-bold flex items-center justify-center text-sm border border-white/20 shrink-0">AG</div>
           <div className="overflow-hidden">
             <p className="text-xs font-bold text-white truncate">Adm. Geral</p>
-            <p className="text-[11px] text-primary-200 truncate">admin@belojardim.ifpe.gov.br</p>
+            <p className="text-[11px] text-primary-200 truncate">admin@belojardim.ifpe.edu.br</p>
           </div>
         </div>
       </aside>
