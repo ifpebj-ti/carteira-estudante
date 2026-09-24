@@ -3,7 +3,7 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-RUN apk update && apk upgrade
+RUN apk update && apk upgrade && apk add --no-cache jq
 
 COPY package*.json ./
 
@@ -14,7 +14,10 @@ COPY . .
 RUN npm run build
 
 
-RUN find .next/standalone -type d \( -name "tar" -o -name "ip-address" -o -name "brace-expansion" \) -prune -exec rm -rf '{}' +
+RUN jq 'del(.dependencies?["tar"], .dependencies?["ip-address"], .dependencies?["brace-expansion"])' .next/standalone/package.json > tmp.json \
+ && mv tmp.json .next/standalone/package.json
+
+RUN find .next/standalone/node_modules -type d \( -name "tar" -o -name "ip-address" -o -name "brace-expansion" \) -prune -exec rm -rf '{}' +
 
 # --- ESTÁGIO 2: RUNNER ---
 FROM node:24-alpine AS runner
