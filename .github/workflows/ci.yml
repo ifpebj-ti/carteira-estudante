@@ -36,8 +36,8 @@ jobs:
           context: ./backend
           load: true 
           tags: carteira-estudante-backend:latest,carteira-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ github.workflow }}-trivy
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-trivy
 
       - name: Inicia os Contêineres (Sem Build)
         run: docker compose up -d --no-build db backend
@@ -105,7 +105,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
 
-      - name: Build Multi-arquitetura e Push para GHCR
+      - name: Build Multi-arquitetura e Push para GHCR (Backend)
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -113,8 +113,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ github.workflow }}-push
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-push
       
       - name: Extrai metadados para o Frontend
         id: meta-frontend
@@ -127,14 +127,14 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
 
-      - name: Build da Imagem do Frontend para Trivy
+      - name: Build da Imagem do Frontend (Local + Cache para Trivy)
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           load: true 
           tags: carteira-frontend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ github.workflow }}-trivy
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-trivy
 
       - name: Análise de Segurança (Trivy) - Frontend
         uses: aquasecurity/trivy-action@master
@@ -154,5 +154,5 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ github.workflow }}-push
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-push
