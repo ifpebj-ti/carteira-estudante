@@ -30,16 +30,16 @@ jobs:
       - name: Configura Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build dos Contêineres com Cache (Bake)
-        uses: docker/bake-action@v5
+      - name: Build da Imagem do Backend (Local + Cache)
+        uses: docker/build-push-action@v5
         with:
-          files: docker-compose.yml
-          load: true
-          set: |
-            *.cache-from=type=gha
-            *.cache-to=type=gha,mode=max
+          context: ./backend
+          load: true 
+          tags: carteira-estudante-backend:latest,carteira-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Inicia os Contêineres
+      - name: Inicia os Contêineres (Sem Build)
         run: docker compose up -d --no-build db backend
 
       - name: Aguarda Banco de Dados
@@ -74,16 +74,7 @@ jobs:
           fail_action: false
           allow_issue_writing: false
 
-      - name: Build da Imagem (Local) para o Trivy
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          load: true 
-          tags: carteira-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Análise de Segurança da Imagem
+      - name: Análise de Segurança da Imagem (Trivy - Backend)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'carteira-backend:latest'
