@@ -24,11 +24,23 @@ jobs:
       - name: Criar arquivo .env para testes da CI
         run: cp .env.example .env
 
-      - name: Testa o Build dos Contêineres
-        run: docker compose build
+      - name: Configura QEMU (Suporte Multi-arquitetura)
+        uses: docker/setup-qemu-action@v4
 
-      - name: Inicia os Contêineres
-        run: docker compose up -d db backend
+      - name: Configura Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build da Imagem do Backend (Local + Cache)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          load: true 
+          tags: carteira-estudante-backend:latest,carteira-backend:latest
+          cache-from: type=gha,scope=${{ github.workflow }}-trivy
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-trivy
+
+      - name: Inicia os Contêineres (Sem Build)
+        run: docker compose up -d --no-build db backend
 
       - name: Aguarda Banco de Dados
         run: sleep 10
@@ -39,10 +51,17 @@ jobs:
       - name: SAST - Segurança Estática (Bandit)
         run: docker compose exec backend sh -c "pip install bandit && bandit -r app/ -ll -ii"
 
+      - name: Configura Node.js e Cache NPM
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Checa sintaxe do Next.js
         run: |
           cd frontend
-          npm install
+          npm ci
           npm run lint --if-present
 
       - name: Executa Testes do Backend
@@ -55,20 +74,7 @@ jobs:
           fail_action: false
           allow_issue_writing: false
 
-      - name: Configura QEMU (Suporte Multi-arquitetura)
-        uses: docker/setup-qemu-action@v4
-
-      - name: Configura Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Build da Imagem (Local) para o Trivy
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          load: true 
-          tags: carteira-backend:latest
-
-      - name: Análise de Segurança da Imagem
+      - name: Análise de Segurança da Imagem (Trivy - Backend)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'carteira-backend:latest'
@@ -99,7 +105,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
 
-      - name: Build Multi-arquitetura e Push para GHCR
+      - name: Build Multi-arquitetura e Push para GHCR (Backend)
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -107,6 +113,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ github.workflow }}-push
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-push
       
       - name: Extrai metadados para o Frontend
         id: meta-frontend
@@ -119,12 +127,14 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
 
-      - name: Build da Imagem do Frontend para Trivy
+      - name: Build da Imagem do Frontend (Local + Cache para Trivy)
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           load: true 
           tags: carteira-frontend:latest
+          cache-from: type=gha,scope=${{ github.workflow }}-trivy
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-trivy
 
       - name: Análise de Segurança (Trivy) - Frontend
         uses: aquasecurity/trivy-action@master
@@ -144,3 +154,5 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha,scope=${{ github.workflow }}-push
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-push
