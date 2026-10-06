@@ -2,16 +2,16 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.api.routers.alunos import router as alunos_router
 from app.api.routers.auth import router as auth_router
 from app.api.routers.health import router as health_router
 from app.api.routers.movimentacao import router as movimentacao_router
+from app.api.routers.pessoas import router as pessoas_router
 from app.core.config import settings
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description=(
-        "API para identificação e controle de acesso dos alunos internos "
+        "API para identificação e controle de acesso dos pessoas internos "
         "do IFPE Campus Belo Jardim."
     ),
     version="1.0.0",
@@ -29,7 +29,7 @@ app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 
 app.include_router(health_router)
 app.include_router(auth_router, prefix="/api/v1/auth")
-app.include_router(alunos_router, prefix="/api/v1")
+app.include_router(pessoas_router, prefix="/api/v1")
 app.include_router(movimentacao_router, prefix="/api/v1/movimentacao", tags=["Catraca"])
 
 

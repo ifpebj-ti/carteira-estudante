@@ -24,6 +24,7 @@ oauth.register(
     },
 )
 
+
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
@@ -35,6 +36,7 @@ def create_access_token(data: dict) -> str:
     )
     return encoded_jwt
 
+
 @router.get("/login/google")
 async def login_google(request: Request):
     """
@@ -43,6 +45,7 @@ async def login_google(request: Request):
     # redirect_uri deve ser a rota callback do nosso próprio backend
     redirect_uri = request.url_for("auth_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
+
 
 @router.get("/callback")
 async def auth_callback(
@@ -58,13 +61,13 @@ async def auth_callback(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Erro ao obter dados do Google: {str(e)}"
+            detail=f"Erro ao obter dados do Google: {str(e)}",
         )
 
     if not user_info or not user_info.get("email"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Não foi possível recuperar o email do Google."
+            detail="Não foi possível recuperar o email do Google.",
         )
 
     email = user_info["email"]
@@ -76,23 +79,20 @@ async def auth_callback(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
-                "Acesso Negado. Este email não está cadastrado "
-                "como Operador ou Admin."
+                "Acesso Negado. Este email não está cadastrado como Operador ou Admin."
             ),
         )
 
     if not usuario.status:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso Negado. Usuário inativo."
+            detail="Acesso Negado. Usuário inativo.",
         )
 
     # Gera token de acesso JWT interno
-    access_token = create_access_token({
-        "sub": str(usuario.id),
-        "email": usuario.login,
-        "perfil": usuario.perfil
-    })
+    access_token = create_access_token(
+        {"sub": str(usuario.id), "email": usuario.login, "perfil": usuario.perfil}
+    )
 
     # Frontend URL de redirecionamento (ex: http://localhost:3000/admin/leitor)
     # Por padrão, vamos jogar na raiz do admin no Next.js
@@ -110,11 +110,13 @@ async def auth_callback(
     )
 
     return redirect_resp
+
+
 @router.get("/me")
 async def get_me(current_user: UsuarioSistema = Depends(get_current_user)):
     return {
         "id": current_user.id,
         "nome": current_user.nome,
         "email": current_user.login,
-        "perfil": current_user.perfil
+        "perfil": current_user.perfil,
     }

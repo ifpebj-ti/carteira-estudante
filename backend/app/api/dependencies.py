@@ -54,6 +54,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Usuario
 
     return usuario
 
+
 def get_current_active_admin(
     current_user: UsuarioSistema = Depends(get_current_user),
 ) -> UsuarioSistema:

@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from app.models.aluno import Aluno
-from app.models.enums import MovementType
-from app.models.movimentacao import MovimentacaoPortaria
+from app.models.enums import SentidoMovimentacao
+from app.models.movimentacao import Movimentacao
+from app.models.pessoa import Pessoa
 from app.services.movimentacao_service import (
     determine_next_movement_type,
     validate_student_status,
@@ -14,12 +14,12 @@ from app.services.movimentacao_service import (
 
 
 def test_validate_student_status_active():
-    student = Aluno(status=True)
+    student = Pessoa(status=True)
     validate_student_status(student)
 
 
 def test_validate_student_status_inactive():
-    student = Aluno(status=False)
+    student = Pessoa(status=False)
     with pytest.raises(HTTPException) as exc_info:
         validate_student_status(student)
     assert exc_info.value.status_code == 403
@@ -31,9 +31,9 @@ def test_determine_next_movement_type_first_access_externo():
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
     mock_query.order_by.return_value.first.return_value = None
 
-    student = Aluno(id=1, is_interno=False)
+    student = Pessoa(id=1, is_interno=False)
     movement_type = determine_next_movement_type(student, db_mock)
-    assert movement_type == MovementType.ENTRADA
+    assert movement_type == SentidoMovimentacao.ENTRADA
 
 
 def test_determine_next_movement_type_first_access_interno():
@@ -41,28 +41,28 @@ def test_determine_next_movement_type_first_access_interno():
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
     mock_query.order_by.return_value.first.return_value = None
 
-    student = Aluno(id=1, is_interno=True)
+    student = Pessoa(id=1, is_interno=True)
     movement_type = determine_next_movement_type(student, db_mock)
-    assert movement_type == MovementType.SAIDA
+    assert movement_type == SentidoMovimentacao.SAIDA
 
 
 def test_determine_next_movement_type_after_entry():
     db_mock = MagicMock()
-    last_mov = MovimentacaoPortaria(tipo=MovementType.ENTRADA, data_hora=datetime.now())
+    last_mov = Movimentacao(tipo=SentidoMovimentacao.ENTRADA, data_hora=datetime.now())
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
     mock_query.order_by.return_value.first.return_value = last_mov
 
-    student = Aluno(id=1, is_interno=False)
+    student = Pessoa(id=1, is_interno=False)
     movement_type = determine_next_movement_type(student, db_mock)
-    assert movement_type == MovementType.SAIDA
+    assert movement_type == SentidoMovimentacao.SAIDA
 
 
 def test_determine_next_movement_type_after_exit():
     db_mock = MagicMock()
-    last_mov = MovimentacaoPortaria(tipo=MovementType.SAIDA, data_hora=datetime.now())
+    last_mov = Movimentacao(tipo=SentidoMovimentacao.SAIDA, data_hora=datetime.now())
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
     mock_query.order_by.return_value.first.return_value = last_mov
 
-    student = Aluno(id=1, is_interno=False)
+    student = Pessoa(id=1, is_interno=False)
     movement_type = determine_next_movement_type(student, db_mock)
-    assert movement_type == MovementType.ENTRADA
+    assert movement_type == SentidoMovimentacao.ENTRADA
