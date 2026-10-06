@@ -1,158 +1,18 @@
-name: CI Pipeline - Carteira Estudante
+name: CI
 
 on:
-  push:
-    branches: [ "main" ]
-    tags: [ 'v*.*.*' ]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
-  issues: write
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build-infra:
-    name: Testa a Infraestrutura
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout do código
-        uses: actions/checkout@v7
-
-      - name: Criar arquivo .env para testes da CI
-        run: cp .env.example .env
-
-      - name: Configura QEMU (Suporte Multi-arquitetura)
-        uses: docker/setup-qemu-action@v4
-
-      - name: Configura Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Build da Imagem do Backend (Local + Cache)
-        uses: docker/build-push-action@v7
-        with:
-          context: ./backend
-          load: true 
-          tags: carteira-estudante-backend:latest,carteira-backend:latest
-          cache-from: type=gha,scope=${{ github.workflow }}-backend-trivy
-          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-backend-trivy
-
-      - name: Inicia os Contêineres (Sem Build)
-        run: docker compose up -d --no-build db backend
-
-      - name: Aguarda Banco de Dados
-        run: sleep 10
-
-      - name: Checa qualidade do Python (Ruff)
-        run: docker compose exec backend ruff check .
-
-      - name: SAST - Segurança Estática (Bandit)
-        run: docker compose exec backend sh -c "pip install bandit && bandit -r app/ -ll -ii"
-
-      - name: Configura Node.js e Cache NPM
-        uses: actions/setup-node@v7
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Checa sintaxe do Next.js
-        run: |
-          cd frontend
-          npm ci
-          npm run lint --if-present
-
-      - name: Executa Testes do Backend
-        run: docker compose exec backend pytest
-
-      - name: DAST - OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.15.0
-        with:
-          target: 'http://localhost:8000'
-          fail_action: false
-          allow_issue_writing: false
-
-      - name: Análise de Segurança da Imagem (Trivy - Backend)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'carteira-backend:latest'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-      
-      - name: Login no GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Prepara nome do repositório
-        run: echo "REPO_OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
-      - name: Extrai metadados (tags, labels) para o Docker
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/${{ env.REPO_OWNER }}/carteira-backend
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-
-      - name: Build Multi-arquitetura e Push para GHCR (Backend)
-        uses: docker/build-push-action@v7
-        with:
-          context: ./backend
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ github.workflow }}-backend-push
-          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-backend-push
-      
-      - name: Extrai metadados para o Frontend
-        id: meta-frontend
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/${{ env.REPO_OWNER }}/carteira-frontend
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-
-      - name: Build da Imagem do Frontend (Local + Cache para Trivy)
-        uses: docker/build-push-action@v7
-        with:
-          context: ./frontend
-          load: true 
-          tags: carteira-frontend:latest
-          cache-from: type=gha,scope=${{ github.workflow }}-frontend-trivy
-          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-frontend-trivy
-
-      - name: Análise de Segurança (Trivy) - Frontend
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'carteira-frontend:latest'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Build Multi-arquitetura e Push para GHCR - Frontend
-        uses: docker/build-push-action@v7
-        with:
-          context: ./frontend
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
-          cache-from: type=gha,scope=${{ github.workflow }}-frontend-push
-          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-frontend-push
+  quality:
+    name: Quality
+    uses: ./.github/workflows/quality.yml

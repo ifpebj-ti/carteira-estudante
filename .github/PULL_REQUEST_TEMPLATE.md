@@ -1,13 +1,21 @@
-**What:**
-[Descreva de forma direta o que foi implementado, corrigido ou alterado]
+## Problema e mudança
+Descreva o comportamento anterior, o resultado esperado e por que esta solução foi escolhida.
 
-**Why:**
-[Explique o motivo dessa alteração e qual problema ela resolve no projeto]
+## Issue relacionada
+Informe o link, se existir. Use `Closes #123` somente quando este PR resolver a issue por completo.
 
-**Test (Peer Review):**
+## Validação
+Liste os comandos/checks executados, resultados e evidências. Explique verificações não executadas ou não aplicáveis.
 
-1. Faça o pull desta branch.
-2. [Comando ou passo a passo para testar a funcionalidade localmente]
-3. Confirme que [resultado esperado].
+| Verificação | Resultado / evidência |
+| --- | --- |
+| | |
 
-Closes #[Número da Issue]
+## Impacto e operação
+Informe mudanças em variáveis, dependências, banco, imagens ou permissões. Para alterações operacionais, descreva como reverter.
+
+## Checklist
+- [ ] O título segue Conventional Commits e representa a alteração.
+- [ ] Nenhuma credencial, matrícula, QR code válido ou outro dado pessoal foi incluído.
+- [ ] Documentação e instruções de operação foram atualizadas quando necessário.
+- [ ] Registrei as validações executadas e as limitações conhecidas.
