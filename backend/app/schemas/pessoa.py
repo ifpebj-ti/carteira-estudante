@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict
 from app.schemas.movimentacao import MovimentacaoResponse
 
 
-class AlunoBase(BaseModel):
+class PessoaBase(BaseModel):
     matricula: str
     nome_completo: str
     curso: str
@@ -17,12 +17,12 @@ class AlunoBase(BaseModel):
     status: bool = True
 
 
-class AlunoCreate(AlunoBase):
+class PessoaCreate(PessoaBase):
     senha: str
     qr_code_hash: str
 
 
-class AlunoResponse(AlunoBase):
+class PessoaResponse(PessoaBase):
     id: int
     qr_code_hash: str
     created_at: datetime
@@ -30,5 +30,5 @@ class AlunoResponse(AlunoBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class AlunoDetailResponse(AlunoResponse):
+class PessoaDetailResponse(PessoaResponse):
     movimentacoes: List[MovimentacaoResponse] = []

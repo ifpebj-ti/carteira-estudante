@@ -4,21 +4,22 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
-from app.models.enums import MovementType
+from app.models.enums import LocalAcesso, SentidoMovimentacao
 
 
-class MovimentacaoPortaria(Base):
-    __tablename__ = "movimentacoes_portaria"
+class Movimentacao(Base):
+    __tablename__ = "movimentacoes"
 
     id = Column(Integer, primary_key=True, index=True)
-    aluno_id = Column(Integer, ForeignKey("alunos.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios_sistema.id"), nullable=False)
-    tipo = Column(SQLEnum(MovementType, native_enum=False), nullable=False)
+    pessoa_id = Column(Integer, ForeignKey("pessoas.id"), nullable=False)
+    operador_id = Column(Integer, ForeignKey("usuarios_sistema.id"), nullable=False)
+    local_acesso = Column(SQLEnum(LocalAcesso, native_enum=False), nullable=False)
+    tipo = Column(SQLEnum(SentidoMovimentacao, native_enum=False), nullable=False)
     data_hora = Column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
 
-    aluno = relationship("Aluno", back_populates="movimentacoes")
-    usuario = relationship("UsuarioSistema")
+    pessoa = relationship("Pessoa", back_populates="movimentacoes")
+    operador = relationship("UsuarioSistema")

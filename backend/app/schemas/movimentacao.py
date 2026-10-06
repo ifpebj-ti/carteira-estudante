@@ -3,22 +3,23 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.enums import MovementType
+from app.models.enums import LocalAcesso, SentidoMovimentacao
 
 
 class MovimentacaoBase(BaseModel):
-    tipo: MovementType
+    tipo: SentidoMovimentacao
+    local_acesso: LocalAcesso
 
 
 class MovimentacaoCreate(MovimentacaoBase):
-    aluno_id: int
-    usuario_id: int
+    pessoa_id: int
+    operador_id: int
 
 
 class MovimentacaoResponse(MovimentacaoBase):
     id: int
-    aluno_id: int
-    usuario_id: int
+    pessoa_id: int
+    operador_id: int
     data_hora: datetime
     operador_nome: Optional[str] = None
 
@@ -27,11 +28,13 @@ class MovimentacaoResponse(MovimentacaoBase):
 
 class ScanRequest(BaseModel):
     qr_code_hash: str
+    local_acesso: LocalAcesso
 
 
 class ScanResponse(BaseModel):
     student_name: str
     student_photo_url: Optional[str] = None
-    movement_type: MovementType
+    movement_type: SentidoMovimentacao
+    local_acesso: LocalAcesso
     status: bool
     created_at: datetime

@@ -7,9 +7,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy.orm import Session
 
 from app.core.database import Base, SessionLocal, engine
-from app.models.aluno import Aluno
-from app.models.enums import MovementType
-from app.models.movimentacao import MovimentacaoPortaria
+from app.models.enums import (
+    LocalAcesso,
+    ModalidadeEnsino,
+    SentidoMovimentacao,
+    TipoVinculo,
+)
+from app.models.movimentacao import Movimentacao
+from app.models.pessoa import Pessoa
 from app.models.usuario import UsuarioSistema
 
 
@@ -20,8 +25,8 @@ def seed():
     db: Session = SessionLocal()
 
     # Verifica se já existe
-    aluno = db.query(Aluno).filter(Aluno.matricula == "2024010582").first()
-    if aluno:
+    pessoa = db.query(Pessoa).filter(Pessoa.matricula == "2024010582").first()
+    if pessoa:
         print("Dados de teste já existem. Pulando seeder.")
         db.close()
         return
@@ -38,28 +43,34 @@ def seed():
     db.commit()
     db.refresh(operador)
 
-    # Criar Aluno
-    aluno = Aluno(
+    # Criar Pessoa
+    pessoa = Pessoa(
         matricula="2024010582",
-        nome_completo="Ricardo Oliveira Santos",
-        curso="Engenharia de Software",
-        modalidade="Superior",
-        idade=26,
+        nome="Ricardo Oliveira Santos",
+        tipo_vinculo=TipoVinculo.ALUNO,
+        modalidade=ModalidadeEnsino.SUPERIOR,
+        is_interno=False,
         email="rs1@discente.ifpe.edu.br",
         qr_code_hash="2024010582-ricardo-ativo",
         status=True,
     )
-    db.add(aluno)
+    db.add(pessoa)
     db.commit()
-    db.refresh(aluno)
+    db.refresh(pessoa)
 
     # Criar Movimentações
-    if not db.query(MovimentacaoPortaria).first():
-        mov1 = MovimentacaoPortaria(
-            aluno_id=aluno.id, usuario_id=operador.id, tipo=MovementType.ENTRADA
+    if not db.query(Movimentacao).first():
+        mov1 = Movimentacao(
+            pessoa_id=pessoa.id,
+            operador_id=operador.id,
+            tipo=SentidoMovimentacao.ENTRADA,
+            local_acesso=LocalAcesso.PORTARIA,
         )
-        mov2 = MovimentacaoPortaria(
-            aluno_id=aluno.id, usuario_id=operador.id, tipo=MovementType.SAIDA
+        mov2 = Movimentacao(
+            pessoa_id=pessoa.id,
+            operador_id=operador.id,
+            tipo=SentidoMovimentacao.SAIDA,
+            local_acesso=LocalAcesso.PORTARIA,
         )
 
     db.add(mov1)

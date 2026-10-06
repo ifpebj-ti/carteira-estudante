@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
-from app.models.aluno import Aluno
-from app.models.movimentacao import MovimentacaoPortaria
+from app.models.movimentacao import Movimentacao
+from app.models.pessoa import Pessoa
 from app.models.usuario import UsuarioSistema
 from app.schemas.movimentacao import ScanRequest, ScanResponse
 from app.services.movimentacao_service import (
@@ -31,40 +31,42 @@ def scan_qr_code(
     db: Session = Depends(get_db),
 ) -> ScanResponse:
     # 1. Decode JWT (Raises 400 if expired or invalid)
-    aluno_id = decode_qr_token(request.qr_code_hash)
+    pessoa_id = decode_qr_token(request.qr_code_hash)
 
-    # 2. Fetch Aluno
-    aluno = db.query(Aluno).filter(Aluno.id == aluno_id).first()
-    if not aluno:
+    # 2. Fetch Pessoa
+    pessoa = db.query(Pessoa).filter(Pessoa.id == pessoa_id).first()
+    if not pessoa:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Aluno não encontrado.",
+            detail="Pessoa não encontrado.",
         )
 
     # 3. Validate Status
     try:
-        validate_student_status(aluno)
+        validate_student_status(pessoa)
     except HTTPException:
         # According to the plan, if access is denied, we return status=False in payload
         # instead of failing the HTTP request, so the portaria app can
         # show a red screen.
-        expected_movement = determine_next_movement_type(aluno.id, db)
+        expected_movement = determine_next_movement_type(pessoa.id, db)
         return ScanResponse(
-            student_name=aluno.nome_completo,
-            student_photo_url=aluno.foto_url,
+            student_name=pessoa.nome,
+            student_photo_url=pessoa.foto_url,
             movement_type=expected_movement,
+            local_acesso=request.local_acesso,
             status=False,
             created_at=datetime.datetime.now(datetime.timezone.utc),
         )
 
     # 4. Determine Movement (Entrada/Saída)
-    movement_type = determine_next_movement_type(aluno, db)
+    movement_type = determine_next_movement_type(pessoa, db)
 
     # 5. Register Movement
-    nova_movimentacao = MovimentacaoPortaria(
-        aluno_id=aluno.id,
-        usuario_id=current_user.id,
+    nova_movimentacao = Movimentacao(
+        pessoa_id=pessoa.id,
+        operador_id=current_user.id,
         tipo=movement_type,
+        local_acesso=request.local_acesso,
     )
     db.add(nova_movimentacao)
     db.commit()
@@ -72,9 +74,10 @@ def scan_qr_code(
 
     # 6. Return Success Response
     return ScanResponse(
-        student_name=aluno.nome_completo,
-        student_photo_url=aluno.foto_url,
+        student_name=pessoa.nome,
+        student_photo_url=pessoa.foto_url,
         movement_type=movement_type,
+        local_acesso=request.local_acesso,
         status=True,
         created_at=nova_movimentacao.data_hora,
     )
