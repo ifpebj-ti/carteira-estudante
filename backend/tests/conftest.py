@@ -37,7 +37,7 @@ def db_session():
 
 @pytest.fixture
 def client(db_session):
-    # Faz com que a API FastAPI real utilize o banco de testes quando chamada via cliente
+    # Força a API a usar o banco de testes quando chamada pelo TestClient
     def override_get_db():
         try:
             yield db_session
