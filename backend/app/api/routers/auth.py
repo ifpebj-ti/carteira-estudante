@@ -112,6 +112,22 @@ async def auth_callback(
     return redirect_resp
 
 
+@router.get("/logout")
+async def logout():
+    """
+    Rota para deslogar o usuário.
+    Deleta o cookie 'access_token' e redireciona para a página de login.
+    """
+    frontend_url = "http://127.0.0.1:3000/"
+    redirect_resp = RedirectResponse(url=frontend_url)
+    redirect_resp.delete_cookie(
+        key="access_token",
+        httponly=True,
+        samesite="lax",
+    )
+    return redirect_resp
+
+
 @router.get("/me")
 async def get_me(current_user: UsuarioSistema = Depends(get_current_user)):
     return {

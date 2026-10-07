@@ -123,7 +123,7 @@ const AdminHeader = ({ onMenuClick }: { onMenuClick: () => void }) => {
             
             {/* Dropdown Menu */}
             <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 flex flex-col">
-              <button className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors w-full text-left">
+              <button onClick={() => window.location.href = 'http://127.0.0.1:8000/api/v1/auth/logout'} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors w-full text-left">
                 <X className="w-4 h-4" /> Sair da conta
               </button>
             </div>
