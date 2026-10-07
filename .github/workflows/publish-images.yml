@@ -1,0 +1,175 @@
+name: Publish scanned images
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      publish_latest:
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-images-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Validate publication inputs
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$VERSION" =~ ^(main|v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]
+
+  build:
+    name: Scan ${{ matrix.component }} / ${{ matrix.architecture }}
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+        architecture: [amd64, arm64]
+    steps:
+      - name: Checkout verified source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Verify source commit
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
+        with:
+          platforms: arm64
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - name: Build candidate image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: ./${{ matrix.component }}
+          platforms: linux/${{ matrix.architecture }}
+          load: true
+          provenance: false
+          tags: carteira-${{ matrix.component }}:${{ matrix.architecture }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ inputs.source_sha }}
+            org.opencontainers.image.version=${{ inputs.version }}
+          cache-from: type=gha,scope=publish-${{ matrix.component }}-${{ matrix.architecture }}
+          cache-to: type=gha,mode=max,scope=publish-${{ matrix.component }}-${{ matrix.architecture }}
+      - name: Scan the image that will be published
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          image-ref: carteira-${{ matrix.component }}:${{ matrix.architecture }}
+          scanners: vuln
+          format: json
+          output: trivy.json
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+      - name: Save approved image
+        env:
+          COMPONENT: ${{ matrix.component }}
+          ARCHITECTURE: ${{ matrix.architecture }}
+        run: docker save "carteira-$COMPONENT:$ARCHITECTURE" --output "$RUNNER_TEMP/$COMPONENT-$ARCHITECTURE.tar"
+      - name: Preserve approved image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: publish-image-${{ matrix.component }}-${{ matrix.architecture }}
+          path: ${{ runner.temp }}/${{ matrix.component }}-${{ matrix.architecture }}.tar
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+      - name: Preserve vulnerability report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: publish-scan-${{ matrix.component }}-${{ matrix.architecture }}
+          path: trivy.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+  publish:
+    name: Publish approved manifests
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download approved images
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: publish-image-*
+          path: images
+          merge-multiple: true
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the scanned images without rebuilding
+        env:
+          VERSION: ${{ inputs.version }}
+          PUBLISH_LATEST: ${{ inputs.publish_latest }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          for component in backend frontend; do
+            image="ghcr.io/$owner/carteira-$component"
+            sources=()
+            for architecture in amd64 arm64; do
+              docker load --input "images/$component-$architecture.tar"
+              candidate="carteira-$component:$architecture"
+              actual_arch="$(docker image inspect "$candidate" --format '{{.Architecture}}')"
+              actual_sha="$(docker image inspect "$candidate" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+              test "$actual_arch" = "$architecture"
+              test "$actual_sha" = "$SOURCE_SHA"
+              staging="$image:build-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$architecture"
+              docker tag "$candidate" "$staging"
+              docker push "$staging"
+              sources+=("$(docker image inspect "$staging" --format '{{index .RepoDigests 0}}')")
+            done
+            tags=(--tag "$image:$VERSION")
+            if [[ "$VERSION" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              tags+=(--tag "$image:${VERSION#v}")
+            fi
+            if [[ "$PUBLISH_LATEST" == "true" ]]; then
+              tags+=(--tag "$image:latest")
+            fi
+            docker buildx imagetools create "${tags[@]}" "${sources[@]}"
+            docker buildx imagetools inspect "$image:$VERSION" --raw > "$component-manifest.json"
+            jq -e '[.manifests[].platform | select(.os == "linux") | .architecture] | sort == ["amd64", "arm64"]' "$component-manifest.json"
+            printf '%s\n' "- $image:$VERSION — source $SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Preserve published manifests
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: published-manifests
+          path: '*-manifest.json'
+          retention-days: 7
+          if-no-files-found: ignore

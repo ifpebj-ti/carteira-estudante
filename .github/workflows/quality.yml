@@ -1,0 +1,237 @@
+name: Quality and security
+
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: '0.12.23'
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/carteira_test
+      SECRET_KEY: ci-only-signing-key-never-use-in-production
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: carteira_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d carteira_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - name: Set up uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install locked dependencies
+        run: uv sync --locked
+      - name: Ruff
+        run: uv run --no-sync ruff check .
+      - name: Test against isolated PostgreSQL
+        run: uv run --no-sync pytest --junitxml=pytest-results.xml
+      - name: Preserve test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: backend-test-results
+          path: backend/pytest-results.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Audit build and runtime dependencies
+        run: npm audit --audit-level=high
+      - name: Generate Next.js types
+        run: npm exec -- next typegen
+      - name: Check TypeScript
+        run: npm exec -- tsc --noEmit --incremental false
+      - name: Build frontend
+        run: npm run build
+
+  security:
+    name: Source security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: .github/requirements-security.txt
+      - name: Install security tools
+        run: python -m pip install -r .github/requirements-security.txt
+      - name: Semgrep blocking scan
+        run: >-
+          semgrep scan --error --strict --metrics=off
+          --config p/owasp-top-ten --config p/security-audit
+          --sarif-output=semgrep.sarif backend/app backend/Dockerfile frontend
+      - name: Bandit blocking scan
+        if: success() || failure()
+        run: bandit -r backend/app -ll -ii -f json -o bandit.json
+      - name: Preserve security reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: source-security-reports
+          path: |
+            semgrep.sarif
+            bandit.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  containers:
+    name: Container ${{ matrix.component }}
+    needs: [backend, frontend, security]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: carteira_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d carteira_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - name: Build image with cache
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: ./${{ matrix.component }}
+          load: true
+          tags: carteira-${{ matrix.component }}:ci
+          cache-from: type=gha,scope=ci-${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=ci-${{ matrix.component }}
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          image-ref: carteira-${{ matrix.component }}:ci
+          scanners: vuln
+          format: json
+          output: trivy-${{ matrix.component }}.json
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+      - name: Start API for DAST
+        if: matrix.component == 'backend'
+        run: |
+          docker run -d --name carteira-dast --network host \
+            -e DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/carteira_test \
+            -e SECRET_KEY=ci-only-signing-key-never-use-in-production \
+            carteira-backend:ci
+          curl --fail --silent --show-error --retry 30 --retry-all-errors \
+            --retry-delay 2 --max-time 5 http://localhost:8000/health
+      - name: ZAP baseline
+        if: matrix.component == 'backend'
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25
+        with:
+          target: http://localhost:8000
+          fail_action: false
+          allow_issue_writing: false
+          artifact_name: zap-baseline-report
+      - name: API logs and cleanup
+        if: always() && matrix.component == 'backend'
+        run: |
+          if docker container inspect carteira-dast >/dev/null 2>&1; then
+            docker logs carteira-dast > backend-runtime.log 2>&1
+            docker rm -f carteira-dast
+          fi
+      - name: Preserve container reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: container-reports-${{ matrix.component }}
+          path: |
+            trivy-${{ matrix.component }}.json
+            backend-runtime.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  gate:
+    name: CI gate
+    if: always()
+    needs: [backend, frontend, security, containers]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require every check to succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          printf '%s' "$RESULTS" | jq -e 'all(.[]; .result == "success")'
