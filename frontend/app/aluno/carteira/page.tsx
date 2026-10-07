@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ShieldCheck, Download, ArrowLeft, User, X, MoreVertical } from 'lucide-react';
+import { ShieldCheck, Download, ArrowLeft, X, MoreVertical } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function DigitalWalletPage() {

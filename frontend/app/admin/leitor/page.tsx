@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { History, QrCode, ShieldAlert, ShieldCheck, User, X, MoreVertical } from 'lucide-react';
+import { History, QrCode, ShieldAlert, ShieldCheck, X, MoreVertical } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { api } from '@/services/api';
 
