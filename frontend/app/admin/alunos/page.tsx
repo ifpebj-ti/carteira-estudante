@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { 
   Menu, X, Search, Filter, Download, Upload, 
-  Edit, CheckCircle, Clock, AlertTriangle, User 
+  Edit, CheckCircle, Clock, AlertTriangle, User, 
+  MoreVertical
 } from 'lucide-react';
 
 // --- COMPONENTES DE LAYOUT ---
@@ -48,37 +49,60 @@ const AdminSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
   </>
 );
 
-const AdminHeader = ({ onMenuClick }: { onMenuClick: () => void }) => (
-  <header className="relative z-20 h-16 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between shrink-0">
-    <div className="flex items-center gap-3 text-sm text-slate-500">
-      <button 
-        type="button"
-        onClick={onMenuClick} 
-        className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
-      <div className="hidden sm:flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
-        <span>Administração</span>
-        <span>/</span>
-        <span className="text-primary-600">Gestão de Alunos</span>
+const AdminHeader = ({ onMenuClick }: { onMenuClick: () => void }) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  return (
+    <header className="relative z-20 h-16 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between shrink-0">
+      
+      {/* Lado Esquerdo: Breadcrumb e Botão Mobile */}
+      <div className="flex items-center gap-3 text-sm text-slate-500">
+        <button 
+          type="button"
+          onClick={onMenuClick} 
+          className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <div className="hidden sm:flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
+          <span>Administração</span>
+          <span>/</span>
+          <span className="text-primary-600">Gestão de Alunos</span>
+        </div>
+        <span className="sm:hidden text-slate-800 font-medium">Gestão de Alunos</span>
       </div>
-      <span className="sm:hidden text-slate-800 font-medium">Gestão de Alunos</span>
-    </div>
-    <div className="flex items-center gap-4">
-      <div className="relative w-full max-w-[200px] sm:max-w-xs md:w-72">
-        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-          <Search className="w-4 h-4" />
-        </span>
-        <input 
-          type="text" 
-          placeholder="Buscar alunos ou carteiras..." 
-          className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" 
-        />
+
+      {/* Lado Direito: Menu de Três Pontinhos (Logout) */}
+      <div className="relative">
+        <button 
+          type="button"
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+        >
+          <MoreVertical className="w-5 h-5" />
+        </button>
+
+        {isDropdownOpen && (
+          <>
+            {/* Overlay invisível para fechar o menu se o usuário clicar fora dele */}
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => setIsDropdownOpen(false)}
+            ></div>
+            
+            {/* Dropdown Menu */}
+            <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 flex flex-col">
+              <button className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors w-full text-left">
+                <X className="w-4 h-4" /> Sair da conta
+              </button>
+            </div>
+          </>
+        )}
       </div>
-    </div>
-  </header>
-);
+      
+    </header>
+  );
+};
 
 // --- DADOS MOCKADOS ---
 const studentsData = [

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { History, QrCode, Settings, Bell, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { History, QrCode, ShieldAlert, ShieldCheck, User, X } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { api } from '@/services/api';
 
@@ -14,6 +14,10 @@ interface ScanResponse {
 }
 
 export default function QrScannerPage() {
+  // Estado do menu dropdown de perfil
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  
+  // Estados do Scanner (Mantidos intactos)
   const [scanStatus, setScanStatus] = useState<ScanStatus>('idle');
   const [scanMessage, setScanMessage] = useState<{ title: string; subtitle: string } | null>(null);
   const [isScannerPaused, setIsScannerPaused] = useState(false);
@@ -84,14 +88,38 @@ export default function QrScannerPage() {
       <div className="w-full max-w-md min-h-screen bg-slate-50 flex flex-col shadow-2xl relative justify-between">
         
         {/* Top Bar Mobile (Clara) */}
-        <header className="bg-white px-4 py-3 border-b border-slate-200 flex items-center justify-between z-20">
+        <header className="bg-white px-4 py-3 border-b border-slate-200 flex items-center justify-between z-30 relative">
           <div className="flex items-center gap-3">
             <div className="bg-primary-600 text-white p-1.5 rounded-lg font-bold text-xs">QR</div>
             <span className="font-bold text-slate-800 text-sm block leading-tight">Carteira de Estudante</span>
           </div>
-          <div className="flex items-center gap-3 text-slate-500">
-            <Bell className="w-5 h-5 cursor-pointer hover:text-primary-600 transition-colors" />
-            <Settings className="w-5 h-5 cursor-pointer hover:text-primary-600 transition-colors" />
+          
+          {/* Menu de Perfil (Substituiu sino e engrenagem) */}
+          <div className="relative">
+            <button 
+              type="button"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 hover:bg-primary-200 flex items-center justify-center font-bold text-xs transition-colors cursor-pointer"
+            >
+              <User className="w-4 h-4" />
+            </button>
+
+            {isDropdownOpen && (
+              <>
+                {/* Overlay para fechar ao clicar fora */}
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setIsDropdownOpen(false)}
+                ></div>
+                
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 flex flex-col">
+                  <button className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors w-full text-left">
+                    <X className="w-4 h-4" /> Sair da conta
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </header>
 

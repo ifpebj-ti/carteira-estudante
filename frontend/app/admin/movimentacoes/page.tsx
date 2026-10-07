@@ -1,7 +1,61 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Menu, X, ArrowUpRight, ArrowDownRight, FileText, Download, Filter } from 'lucide-react';
+import { Menu, X, ArrowUpRight, ArrowDownRight, 
+FileText, Download, Filter, MoreVertical, User 
+} from 'lucide-react';
+
+const AdminHeader = ({ onMenuClick }: { onMenuClick: () => void }) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  return (
+    <header className="relative z-20 h-16 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between shrink-0">
+      
+      {/* Lado Esquerdo */}
+      <div className="flex items-center gap-3 text-sm text-slate-500">
+        <button 
+          type="button"
+          onClick={onMenuClick} 
+          className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <div className="hidden sm:flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
+          <span>Adm Central</span>
+          <span>/</span>
+          <span className="text-primary-600">Movimentações</span>
+        </div>
+        <span className="sm:hidden text-slate-800 font-medium">Movimentações</span>
+      </div>
+
+      {/* Lado Direito: Menu de Três Pontinhos (Logout) */}
+      <div className="relative">
+        <button 
+          type="button"
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+        >
+          <MoreVertical className="w-5 h-5" />
+        </button>
+
+        {isDropdownOpen && (
+          <>
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => setIsDropdownOpen(false)}
+            ></div>
+            <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 flex flex-col">
+              <button className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors w-full text-left">
+                <X className="w-4 h-4" /> Sair da conta
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+      
+    </header>
+  );
+};
 
 export default function MovimentacoesPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -53,28 +107,7 @@ export default function MovimentacoesPage() {
       {/* Main Content adaptado */}
       <main className="flex-1 flex flex-col h-full min-w-0 relative">
         
-        {/* Header Fixo */}
-        <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3 text-sm text-slate-500">
-            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg">
-              <Menu className="w-5 h-5" />
-            </button>
-            <div className="hidden sm:flex items-center gap-2">
-              <span>Adm Central</span>
-              <span>/</span>
-              <span className="text-slate-800 font-medium">Movimentações</span>
-            </div>
-            <span className="sm:hidden text-slate-800 font-medium">Movimentações</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="relative w-full max-w-[180px] sm:max-w-xs md:w-72">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <Search className="w-4 h-4" />
-              </span>
-              <input type="text" placeholder="Buscar registros..." className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
-            </div>
-          </div>
-        </header>
+        <AdminHeader onMenuClick={() => setIsMobileMenuOpen(true)} />
 
         {/* Área de conteúdo com rolagem independente */}
         <div className="flex-1 overflow-y-auto">

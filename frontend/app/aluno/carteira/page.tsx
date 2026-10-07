@@ -1,9 +1,12 @@
 'use client';
 
-import { ShieldCheck, Download, ArrowLeft, MoreVertical, Bell, Settings, User } from 'lucide-react';
+import { useState } from 'react';
+import { ShieldCheck, Download, ArrowLeft, User, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function DigitalWalletPage() {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-start">
       
@@ -16,12 +19,33 @@ export default function DigitalWalletPage() {
             <div className="bg-primary-900 text-white p-1.5 rounded-lg font-bold text-xs">A</div>
             <span className="font-bold text-slate-800 text-sm">Carteira Estudantil</span>
           </div>
-          <div className="flex items-center gap-3 text-slate-600">
-            <Bell className="w-5 h-5 cursor-pointer hover:text-primary-600" />
-            <Settings className="w-5 h-5 cursor-pointer hover:text-primary-600" />
-            <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs">
+          
+          {/* Menu de Perfil (Substituiu sino, engrenagem e os 3 pontinhos) */}
+          <div className="relative">
+            <button 
+              type="button"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 hover:bg-primary-200 flex items-center justify-center font-bold text-xs transition-colors cursor-pointer"
+            >
               <User className="w-4 h-4" />
-            </div>
+            </button>
+
+            {isDropdownOpen && (
+              <>
+                {/* Overlay para fechar ao clicar fora */}
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setIsDropdownOpen(false)}
+                ></div>
+                
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 flex flex-col">
+                  <button className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors w-full text-left">
+                    <X className="w-4 h-4" /> Sair da conta
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </header>
 
@@ -31,9 +55,8 @@ export default function DigitalWalletPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="font-bold text-slate-800 text-base">Minha Carteira</h1>
-          <button className="text-slate-600 hover:text-slate-900 p-1">
-            <MoreVertical className="w-5 h-5" />
-          </button>
+          {/* Div vazia com a mesma largura do botão ArrowLeft para manter o título centralizado */}
+          <div className="w-7"></div>
         </div>
 
         {/* Conteúdo rolável */}
