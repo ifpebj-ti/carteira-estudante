@@ -3,8 +3,8 @@
 import { 
   FileText, Settings, Edit, Printer, 
   ArrowUpRight, ArrowDownRight, Clock, Users, LayoutDashboard,
-  ShieldCheck, Download, Loader2, Search, Menu, X, AlertCircle, 
-  MoreVertical, User
+  ShieldCheck, Download, Loader2, Menu, X, AlertCircle, 
+  MoreVertical
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';

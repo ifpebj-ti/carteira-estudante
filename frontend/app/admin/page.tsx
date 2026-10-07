@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { 
-  Menu, X, Search, Users, Activity, 
+  Menu, X, Users, Activity, 
   ArrowUpRight, ArrowDownRight, UserPlus, ChevronRight, 
-  User, MoreVertical  
+  MoreVertical  
 } from 'lucide-react';
 
 // --- LAYOUT COMPONENTS ---

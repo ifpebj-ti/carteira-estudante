@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Menu, X, ArrowUpRight, ArrowDownRight, 
-FileText, Download, Filter, MoreVertical, User 
+Download, Filter, MoreVertical
 } from 'lucide-react';
 
 const AdminHeader = ({ onMenuClick }: { onMenuClick: () => void }) => {

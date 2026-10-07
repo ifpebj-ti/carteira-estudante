@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { 
   Menu, X, Camera, Trash2, Save, AlertCircle, 
   ShieldCheck, Smartphone, CheckCircle, Image as ImageIcon, 
-  MoreVertical, User
+  MoreVertical
 } from 'lucide-react';
 
 // --- COMPONENTES DE LAYOUT ---
