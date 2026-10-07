@@ -45,6 +45,9 @@ jobs:
       - name: Aguarda Banco de Dados
         run: sleep 10
 
+      - name: Cria Banco de Testes
+        run: docker compose exec db psql -U postgres -c "CREATE DATABASE carteira_estudantil_test;"
+
       - name: Checa qualidade do Python (Ruff)
         run: docker compose exec backend ruff check .
 
