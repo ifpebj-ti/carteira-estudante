@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ShieldCheck, Download, ArrowLeft, User, X } from 'lucide-react';
+import { ShieldCheck, Download, ArrowLeft, User, X, MoreVertical } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function DigitalWalletPage() {
@@ -20,14 +20,13 @@ export default function DigitalWalletPage() {
             <span className="font-bold text-slate-800 text-sm">Carteira Estudantil</span>
           </div>
           
-          {/* Menu de Perfil (Substituiu sino, engrenagem e os 3 pontinhos) */}
           <div className="relative">
             <button 
               type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 hover:bg-primary-200 flex items-center justify-center font-bold text-xs transition-colors cursor-pointer"
+              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
             >
-              <User className="w-4 h-4" />
+              <MoreVertical className="w-5 h-5" />
             </button>
 
             {isDropdownOpen && (

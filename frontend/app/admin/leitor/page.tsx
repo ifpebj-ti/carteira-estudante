@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { History, QrCode, ShieldAlert, ShieldCheck, User, X } from 'lucide-react';
+import { History, QrCode, ShieldAlert, ShieldCheck, User, X, MoreVertical } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { api } from '@/services/api';
 
@@ -94,14 +94,14 @@ export default function QrScannerPage() {
             <span className="font-bold text-slate-800 text-sm block leading-tight">Carteira de Estudante</span>
           </div>
           
-          {/* Menu de Perfil (Substituiu sino e engrenagem) */}
+          {/* Menu de Opções (Três pontinhos) */}
           <div className="relative">
             <button 
               type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 hover:bg-primary-200 flex items-center justify-center font-bold text-xs transition-colors cursor-pointer"
+              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
             >
-              <User className="w-4 h-4" />
+              <MoreVertical className="w-5 h-5" />
             </button>
 
             {isDropdownOpen && (
