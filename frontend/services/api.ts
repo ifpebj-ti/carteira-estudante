@@ -7,18 +7,25 @@
  *   to avoid routing through the host machine.
  */
 const getApiUrl = (): string => {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     // Server-side: use internal Docker service name if available
-    return process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    return (
+      process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:8000"
+    );
   }
   // Client-side: use public URL exposed to the browser
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 };
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string
+  ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
@@ -29,12 +36,12 @@ export const api = async <T>(
   const baseUrl = getApiUrl();
 
   const defaultHeaders: HeadersInit = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   };
 
   const config: RequestInit = {
     ...options,
-    credentials: 'include', // Include HttpOnly cookies in all requests
+    credentials: "include", // Include HttpOnly cookies in all requests
     headers: {
       ...defaultHeaders,
       ...options.headers,
@@ -47,7 +54,8 @@ export const api = async <T>(
     const errorData = await response.json().catch(() => ({}));
     throw new ApiError(
       response.status,
-      errorData.detail || 'Ocorreu um erro inesperado ao se comunicar com o servidor.'
+      errorData.detail ||
+        "Ocorreu um erro inesperado ao se comunicar com o servidor."
     );
   }
 
@@ -58,4 +66,3 @@ export const api = async <T>(
 
   return response.json();
 };
-

@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useRef } from 'react';
-import { History, QrCode, ShieldAlert, ShieldCheck } from 'lucide-react';
-import { Scanner } from '@yudiel/react-qr-scanner';
-import { api } from '@/services/api';
+import { useState, useCallback, useRef } from "react";
+import { History, QrCode, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Scanner } from "@yudiel/react-qr-scanner";
+import { api } from "@/services/api";
 
-type ScanStatus = 'idle' | 'loading' | 'success' | 'error';
+type ScanStatus = "idle" | "loading" | "success" | "error";
 
 interface ScanResponse {
   status: boolean;
@@ -14,68 +14,78 @@ interface ScanResponse {
 }
 
 export default function QrScannerPage() {
-  
   // Estados do Scanner (Mantidos intactos)
-  const [scanStatus, setScanStatus] = useState<ScanStatus>('idle');
-  const [scanMessage, setScanMessage] = useState<{ title: string; subtitle: string } | null>(null);
+  const [scanStatus, setScanStatus] = useState<ScanStatus>("idle");
+  const [scanMessage, setScanMessage] = useState<{
+    title: string;
+    subtitle: string;
+  } | null>(null);
   const [isScannerPaused, setIsScannerPaused] = useState(false);
-  
+
   // Prevent multiple rapid fires
   const lastScanTime = useRef<number>(0);
 
-  const handleScan = useCallback(async (detectedCodes: any[]) => {
-    if (detectedCodes.length === 0 || isScannerPaused || scanStatus === 'loading') return;
-    
-    const now = Date.now();
-    if (now - lastScanTime.current < 3000) return; // debounce 3s
-    
-    const token = detectedCodes[0].rawValue;
-    if (!token) return;
+  const handleScan = useCallback(
+    async (detectedCodes: any[]) => {
+      if (
+        detectedCodes.length === 0 ||
+        isScannerPaused ||
+        scanStatus === "loading"
+      )
+        return;
 
-    lastScanTime.current = now;
-    setScanStatus('loading');
-    setIsScannerPaused(true);
+      const now = Date.now();
+      if (now - lastScanTime.current < 3000) return; // debounce 3s
 
-    try {
-      console.log('Sending request to API for token:', token);
-      const data = await api<ScanResponse>('/api/v1/movimentacao/scan', {
-        method: 'POST',
-        body: JSON.stringify({
-          qr_code_hash: token,
-          operator_id: 1, // Mock temporary operator ID
-        }),
-      });
+      const token = detectedCodes[0].rawValue;
+      if (!token) return;
 
-      console.log('API response:', data);
-      if (data.status) {
-        setScanStatus('success');
-        setScanMessage({
-          title: 'Acesso Permitido!',
-          subtitle: `${data.student_name} - ${data.movement_type}`,
+      lastScanTime.current = now;
+      setScanStatus("loading");
+      setIsScannerPaused(true);
+
+      try {
+        console.log("Sending request to API for token:", token);
+        const data = await api<ScanResponse>("/api/v1/movimentacao/scan", {
+          method: "POST",
+          body: JSON.stringify({
+            qr_code_hash: token,
+            operator_id: 1, // Mock temporary operator ID
+          }),
         });
-      } else {
-        setScanStatus('error');
+
+        console.log("API response:", data);
+        if (data.status) {
+          setScanStatus("success");
+          setScanMessage({
+            title: "Acesso Permitido!",
+            subtitle: `${data.student_name} - ${data.movement_type}`,
+          });
+        } else {
+          setScanStatus("error");
+          setScanMessage({
+            title: "Acesso Negado",
+            subtitle: `${data.student_name} - Acesso bloqueado.`,
+          });
+        }
+      } catch (error: any) {
+        console.error("API Error:", error);
+        setScanStatus("error");
         setScanMessage({
-          title: 'Acesso Negado',
-          subtitle: `${data.student_name} - Acesso bloqueado.`,
+          title: "Acesso Negado",
+          subtitle: error.message || "Token inválido ou expirado.",
         });
       }
-    } catch (error: any) {
-      console.error('API Error:', error);
-      setScanStatus('error');
-      setScanMessage({
-        title: 'Acesso Negado',
-        subtitle: error.message || 'Token inválido ou expirado.',
-      });
-    }
 
-    // Reset after 3 seconds
-    setTimeout(() => {
-      setScanStatus('idle');
-      setScanMessage(null);
-      setIsScannerPaused(false);
-    }, 3000);
-  }, [isScannerPaused, scanStatus]);
+      // Reset after 3 seconds
+      setTimeout(() => {
+        setScanStatus("idle");
+        setScanMessage(null);
+        setIsScannerPaused(false);
+      }, 3000);
+    },
+    [isScannerPaused, scanStatus]
+  );
 
   const handleError = (error: unknown) => {
     console.error("Camera error:", error);
@@ -92,15 +102,15 @@ export default function QrScannerPage() {
 
       {/* Conteúdo principal */}
       <main className="flex-1 p-4 flex flex-col items-center justify-center space-y-4">
-        
         <div className="text-center space-y-1 mb-2">
           <h1 className="text-xl font-bold text-slate-900">Escaneamento</h1>
-          <p className="text-xs text-slate-500">Posicione para validação de acesso</p>
+          <p className="text-xs text-slate-500">
+            Posicione para validação de acesso
+          </p>
         </div>
 
         {/* Visor da Câmera com Yudiel Scanner */}
         <div className="w-full max-w-[320px] bg-slate-900 rounded-3xl border-2 border-primary-500/50 p-2 relative flex flex-col shadow-lg overflow-hidden group">
-          
           {/* Tag AO VIVO */}
           <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-full text-[10px] font-bold text-emerald-400">
             <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
@@ -108,7 +118,7 @@ export default function QrScannerPage() {
           </div>
 
           <div className="relative rounded-2xl overflow-hidden aspect-square bg-black">
-            <Scanner 
+            <Scanner
               onScan={handleScan}
               onError={handleError}
               paused={isScannerPaused}
@@ -116,31 +126,39 @@ export default function QrScannerPage() {
                 finder: false,
               }}
               styles={{
-                container: { width: '100%', height: '100%' },
+                container: { width: "100%", height: "100%" },
               }}
             />
 
             {/* Overlays de Loading / Sucesso / Erro */}
-            {scanStatus === 'loading' && (
+            {scanStatus === "loading" && (
               <div className="absolute inset-0 bg-slate-900/80 z-20 flex flex-col items-center justify-center text-white backdrop-blur-sm">
                 <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-3"></div>
                 <span className="font-semibold text-sm">Validando...</span>
               </div>
             )}
 
-            {scanStatus === 'success' && scanMessage && (
+            {scanStatus === "success" && scanMessage && (
               <div className="absolute inset-0 bg-emerald-600/95 z-20 flex flex-col items-center justify-center text-white p-4 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
                 <ShieldCheck className="w-16 h-16 text-emerald-200 mb-2" />
-                <span className="font-bold text-lg text-center">{scanMessage.title}</span>
-                <span className="text-sm mt-1 text-emerald-100 text-center font-medium">{scanMessage.subtitle}</span>
+                <span className="font-bold text-lg text-center">
+                  {scanMessage.title}
+                </span>
+                <span className="text-sm mt-1 text-emerald-100 text-center font-medium">
+                  {scanMessage.subtitle}
+                </span>
               </div>
             )}
 
-            {scanStatus === 'error' && scanMessage && (
+            {scanStatus === "error" && scanMessage && (
               <div className="absolute inset-0 bg-red-600/95 z-20 flex flex-col items-center justify-center text-white p-4 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
                 <ShieldAlert className="w-16 h-16 text-red-200 mb-2" />
-                <span className="font-bold text-lg text-center">{scanMessage.title}</span>
-                <span className="text-sm mt-1 text-red-100 text-center font-medium">{scanMessage.subtitle}</span>
+                <span className="font-bold text-lg text-center">
+                  {scanMessage.title}
+                </span>
+                <span className="text-sm mt-1 text-red-100 text-center font-medium">
+                  {scanMessage.subtitle}
+                </span>
               </div>
             )}
           </div>
@@ -149,7 +167,6 @@ export default function QrScannerPage() {
             Aponte o QR Code para a câmera
           </p>
         </div>
-
       </main>
 
       {/* Navegação Inferior estilo App Mobile (Clara) */}
