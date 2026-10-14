@@ -17,14 +17,18 @@ FROM node:24-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
 
 RUN rm -rf /usr/local/lib/node_modules/npm \
            /usr/local/bin/npm \
-           /usr/local/bin/npx
+           /usr/local/bin/npx \
+    && chown node:node /app
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/public ./public
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+
+USER node
 
 EXPOSE 3000
 
