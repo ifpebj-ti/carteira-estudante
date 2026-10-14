@@ -1,0 +1,104 @@
+name: Release and publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to rebuild (does not move latest)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    name: Resolve release source
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      tag: ${{ steps.source.outputs.tag }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve and validate source
+        id: source
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          source_sha="$(git rev-parse HEAD)"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+            test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.draft')" = false
+            source_sha="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+            git merge-base --is-ancestor "$source_sha" HEAD
+          fi
+          printf 'sha=%s\ntag=%s\n' "$source_sha" "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+  quality:
+    name: Validate release source
+    needs: source
+    uses: ./.github/workflows/quality.yml
+    with:
+      source_ref: ${{ needs.source.outputs.sha }}
+
+  release:
+    name: Release Please
+    needs: [source, quality]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Create or update release
+        id: release
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: main
+      - name: Checkout created tag
+        if: steps.release.outputs.release_created == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ steps.release.outputs.tag_name }}
+          persist-credentials: false
+      - name: Verify release matches validated commit
+        if: steps.release.outputs.release_created == 'true'
+        env:
+          EXPECTED_SHA: ${{ needs.source.outputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+  publish:
+    name: Publish release images
+    needs: [source, quality, release]
+    if: >-
+      ${{ !cancelled() && needs.quality.result == 'success' &&
+          ((github.event_name == 'push' && needs.release.result == 'success' &&
+            needs.release.outputs.created == 'true') ||
+           github.event_name == 'workflow_dispatch') }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/publish-images.yml
+    with:
+      source_sha: ${{ needs.source.outputs.sha }}
+      version: ${{ needs.release.outputs.tag || needs.source.outputs.tag }}
+      publish_latest: ${{ github.event_name == 'push' }}

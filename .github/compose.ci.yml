@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: carteira_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d carteira_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  backend-tests:
+    build:
+      context: ../backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/carteira_test
+      SECRET_KEY: ci-only-signing-key-never-use-in-production
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["pytest"]
