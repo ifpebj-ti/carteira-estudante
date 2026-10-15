@@ -5,11 +5,9 @@ import {
   Filter,
   Download,
   Upload,
-  Edit,
   CheckCircle,
   Clock,
-  AlertTriangle,
-  User,
+  AlertTriangle 
 } from "lucide-react";
 
 export default function StudentListPage() {
