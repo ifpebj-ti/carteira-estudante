@@ -1,7 +1,7 @@
-import React from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import React from "react";
+import { useAuth } from "@/hooks/useAuth";
 
-type Role = 'Aluno' | 'Portaria' | 'Administrador';
+type Role = "Aluno" | "Portaria" | "Administrador";
 
 interface ProtectedRouteProps {
   /** Roles that are allowed to see this content */
