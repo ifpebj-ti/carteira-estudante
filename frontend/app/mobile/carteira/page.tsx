@@ -26,7 +26,7 @@ export default function DigitalWalletPage() {
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-primary-200" />
               <span className="text-[10px] font-bold uppercase tracking-wider text-primary-200">
-                Carteira de Estudante Interno
+                Carteira de Estudante
               </span>
             </div>
             <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse"></span>
@@ -42,16 +42,16 @@ export default function DigitalWalletPage() {
             </div>
             <div>
               <h2 className="text-base font-bold leading-tight">
-                João da Silva
+                {/* Nome */}
               </h2>
               <p className="text-xs text-primary-200 mt-1">
                 Matrícula:{" "}
-                <span className="text-white font-semibold">2023102457</span>
+                <span className="text-white font-semibold">{/* Matrícula */}</span>
               </p>
               <p className="text-xs text-primary-200 mt-0.5">
                 Curso:{" "}
                 <span className="text-white font-semibold">
-                  Engenharia de Computação
+                  {/* Curso */}
                 </span>
               </p>
             </div>
@@ -61,7 +61,7 @@ export default function DigitalWalletPage() {
         {/* Seção do QR Code Central */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 flex flex-col items-center text-center">
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-inner mb-3">
-            <QRCodeSVG value="joao-silva-2023102457-hash-dinamico" size={180} />
+            {/* QR Code */}
           </div>
           <p className="text-xs text-slate-500 max-w-[240px]">
             Apresente este QR Code nas entradas e saídas do campus.

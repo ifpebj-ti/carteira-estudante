@@ -12,50 +12,6 @@ import {
   User,
 } from "lucide-react";
 
-// --- DADOS MOCKADOS ---
-const studentsData = [
-  {
-    id: 1,
-    nome: "Gustavo Nogueira de Araújo",
-    curso: "Engenharia de Software",
-    matricula: "2024102457",
-    email: "gna1@discente.ifpe.edu.br",
-    status: "Ativo",
-  },
-  {
-    id: 2,
-    nome: "Maria Oliveira",
-    curso: "Administração",
-    matricula: "2023102458",
-    email: "mo1@discente.ifpe.edu.br",
-    status: "Ativo",
-  },
-  {
-    id: 3,
-    nome: "Pedro Santos",
-    curso: "Sistemas de Informação",
-    matricula: "2023102459",
-    email: "ps1@discente.ifpe.edu.br",
-    status: "Suspenso",
-  },
-  {
-    id: 4,
-    nome: "Ana Beatriz Souza",
-    curso: "Engenharia Civil",
-    matricula: "2023102460",
-    email: "abs1@discente.ifpe.edu.br",
-    status: "Inativo",
-  },
-  {
-    id: 5,
-    nome: "Ricardo Oliveira Santos",
-    curso: "Engenharia de Software",
-    matricula: "2024010582",
-    email: "rs1@discente.ifpe.edu.br",
-    status: "Ativo",
-  },
-];
-
 export default function StudentListPage() {
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -100,7 +56,7 @@ export default function StudentListPage() {
           <div>
             <h3 className="font-bold text-slate-900">Validação Ativa</h3>
             <p className="text-xs text-slate-500 mt-1">
-              92% dos alunos possuem carteiras válidas.
+              x% dos alunos possuem carteiras válidas.
             </p>
           </div>
         </div>
@@ -111,7 +67,7 @@ export default function StudentListPage() {
           <div>
             <h3 className="font-bold text-slate-900">Renovações Pendentes</h3>
             <p className="text-xs text-slate-500 mt-1">
-              14 alunos aguardando atualização de dados.
+              y alunos aguardando atualização de dados.
             </p>
           </div>
         </div>
@@ -122,7 +78,7 @@ export default function StudentListPage() {
           <div>
             <h3 className="font-bold text-slate-900">Inconsistências</h3>
             <p className="text-xs text-slate-500 mt-1">
-              2 registros com documentos expirados identificados.
+              z registros com documentos expirados identificados.
             </p>
           </div>
         </div>
@@ -181,68 +137,13 @@ export default function StudentListPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
-              {studentsData.map((student) => (
-                <tr
-                  key={student.id}
-                  className="hover:bg-slate-50/50 transition-colors group"
-                >
-                  <td className="py-3 px-6">
-                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border border-slate-300">
-                      <User className="w-5 h-5 text-slate-400" />
-                    </div>
-                  </td>
-                  <td className="py-3 px-6 font-medium text-slate-900">
-                    {student.nome}
-                  </td>
-                  <td className="py-3 px-6 text-slate-600">{student.curso}</td>
-                  <td className="py-3 px-6 text-slate-500 font-mono text-xs">
-                    {student.matricula}
-                  </td>
-                  <td className="py-3 px-6 text-slate-600 font-medium">
-                    {student.email}
-                  </td>
-                  <td className="py-3 px-6">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border ${getStatusStyle(student.status)}`}
-                    >
-                      {student.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-6 text-center">
-                    <button className="text-primary-600 hover:text-primary-800 p-2 rounded-lg hover:bg-primary-50 transition-colors inline-flex items-center gap-1.5 text-xs font-semibold">
-                      <Edit className="w-4 h-4" /> Editar
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {/* Dados */}
             </tbody>
           </table>
         </div>
 
         {/* Paginação */}
-        <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
-          <span>
-            Mostrando <span className="font-medium text-slate-900">1-5</span> de{" "}
-            <span className="font-medium text-slate-900">256</span> alunos
-          </span>
-          <div className="flex items-center gap-1.5">
-            <button className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50 font-medium">
-              Anterior
-            </button>
-            <button className="px-3 py-1.5 border border-primary-600 rounded-xl bg-primary-600 text-white font-medium shadow-sm shadow-primary-600/20">
-              1
-            </button>
-            <button className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-100 transition-colors font-medium">
-              2
-            </button>
-            <button className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-100 transition-colors font-medium">
-              3
-            </button>
-            <button className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-100 transition-colors font-medium">
-              Próximo
-            </button>
-          </div>
-        </div>
+        
       </div>
     </div>
   );
