@@ -11,19 +11,6 @@ import {
 } from "lucide-react";
 
 export default function StudentListPage() {
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "Ativo":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200";
-      case "Suspenso":
-        return "bg-amber-50 text-amber-700 border-amber-200";
-      case "Inativo":
-        return "bg-rose-50 text-rose-700 border-rose-200";
-      default:
-        return "bg-slate-50 text-slate-700 border-slate-200";
-    }
-  };
-
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       {/* Cabeçalho da Página e Ações */}

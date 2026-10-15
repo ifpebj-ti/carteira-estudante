@@ -33,11 +33,7 @@ export default function DigitalWalletPage() {
 
           <div className="flex gap-4 items-center">
             <div className="w-20 h-24 bg-white/10 rounded-xl overflow-hidden border-2 border-white/20 shrink-0">
-              <img
-                src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150"
-                alt="Foto"
-                className="w-full h-full object-cover"
-              />
+              {/* Foto do Aluno */}
             </div>
             <div>
               <h2 className="text-base font-bold leading-tight">
