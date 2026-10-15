@@ -10,6 +10,7 @@ from app.core.database import Base, SessionLocal, engine
 from app.models.enums import (
     LocalAcesso,
     ModalidadeEnsino,
+    PerfilOperador,
     SentidoMovimentacao,
     TipoVinculo,
 )
@@ -37,7 +38,7 @@ def seed():
     operador = UsuarioSistema(
         nome="Admin Julia",
         login="admin.julia",
-        perfil="PORTARIA",
+        perfil=PerfilOperador.PORTEIRO,
     )
     db.add(operador)
     db.commit()

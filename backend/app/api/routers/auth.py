@@ -6,10 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies.security import RoleChecker, get_current_user
 from app.core.config import settings
 from app.core.database import get_db
+from app.models.enums import PerfilOperador
 from app.models.usuario import UsuarioSistema
+from app.schemas.usuario import UsuarioResponse
 
 router = APIRouter(tags=["Auth"])
 
@@ -136,3 +138,21 @@ async def get_me(current_user: UsuarioSistema = Depends(get_current_user)):
         "email": current_user.login,
         "perfil": current_user.perfil,
     }
+
+
+@router.get(
+    "/usuarios",
+    response_model=list[UsuarioResponse],
+    summary="Listar operadores do sistema",
+    dependencies=[Depends(RoleChecker([PerfilOperador.ADMIN]))],
+)
+async def list_usuarios(
+    db: Session = Depends(get_db),
+    admin_user: UsuarioSistema = Depends(RoleChecker([PerfilOperador.ADMIN])),
+):
+    """
+    Lista todos os operadores e administradores cadastrados no sistema.
+    Acesso restrito exclusivamente para usuários com perfil ADMIN.
+    """
+    usuarios = db.query(UsuarioSistema).all()
+    return usuarios

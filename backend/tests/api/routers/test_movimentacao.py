@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_current_user
-from app.models.enums import SentidoMovimentacao
+from app.models.enums import PerfilOperador, SentidoMovimentacao
 from app.models.pessoa import Pessoa
 from app.models.usuario import UsuarioSistema
 from app.services.qr_crypto_service import generate_qr_token
@@ -12,7 +12,7 @@ def override_get_current_user():
         id=1,
         nome="Operador Test",
         login="op@test.com",
-        perfil="PORTARIA",
+        perfil=PerfilOperador.PORTEIRO,
         status=True,
     )
 
@@ -36,7 +36,7 @@ def test_scan_qr_code_success(client: TestClient, db_session):
             id=1,
             nome="Operador Test",
             login="op@test.com",
-            perfil="PORTARIA",
+            perfil=PerfilOperador.PORTEIRO,
         )
         db_session.add(operador)
 
