@@ -41,7 +41,7 @@ export default function AdminLayout({
 
       {/* --- SIDEBAR --- */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-primary-900 text-white border-r border-primary-800 flex flex-col justify-between transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 shrink-0 h-full`}
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-green-900 text-white border-r border-green-800 flex flex-col justify-between transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 shrink-0 h-full`}
       >
         <div>
           <div className="p-6 border-b border-white/10 flex items-center justify-between gap-3">
