@@ -10,7 +10,6 @@ export default function LoginPage() {
         {/* Imagem de Fundo do Campus com opacidade e gradiente */}
         <div
           className="absolute inset-0 z-0 opacity-60 bg-cover bg-center bg-no-repeat mix-blend-overlay"
-          style={{ backgroundImage: "url('/ifpe_belo_jardim.jpeg')" }}
         ></div>
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-primary-900/60 to-primary-950/70"></div>
 
@@ -67,6 +66,7 @@ export default function LoginPage() {
         {/* Cartão Central de Login */}
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 sm:p-10 flex flex-col">
           <div className="text-center sm:text-left mb-6">
+            <img src="/image.png"></img>
             <h3 className="text-2xl font-bold text-slate-900 mb-2">
               Acesse sua conta
             </h3>

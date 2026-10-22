@@ -1,9 +1,13 @@
-import { Inter } from "next/font/google";
+import { Roboto } from "next/font/google";
 import "./globals.css";
 import type { Metadata } from "next";
 import { AuthProvider } from "@/hooks/useAuth";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const roboto = Roboto({ 
+  weight: ['400', '500', '700'],
+  subsets: ["latin"], 
+  // Já não precisamos do 'variable' aqui!
+});
 
 export const metadata: Metadata = {
   title: "Carteira de Estudante - IFPE",
@@ -18,7 +22,8 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body
-        className={`${inter.variable} font-sans antialiased min-h-screen bg-slate-50 text-slate-900`}
+        /* Aqui está a magia: usamos roboto.className diretamente */
+        className={`${roboto.className} antialiased min-h-screen bg-slate-50 text-slate-900`}
       >
         <AuthProvider>{children}</AuthProvider>
       </body>
