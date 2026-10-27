@@ -8,7 +8,7 @@ on:
 
 permissions:
   contents: read
-  
+
 jobs:
   pytm-security:
     runs-on: ubuntu-latest
@@ -31,7 +31,7 @@ jobs:
         run: |
           # 1. Gera o relatório completo de ameaças usando nosso template
           python .github/security/threat_model.py --report .github/security/template.md > threat_report.md
-          
+
           # 2. Gera o Diagrama de Fluxo de Dados (DFD) em imagem PNG
           python .github/security/threat_model.py --dfd | dot -Tpng -o arquitetura_dfd.png
 
