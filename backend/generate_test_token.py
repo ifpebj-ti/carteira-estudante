@@ -16,8 +16,9 @@ def main():
     if not pessoa:
         pessoa = Pessoa(
             id=1,
-            matricula="TEST123",
+            matricula="20241EWBJ0001",
             nome="Pessoa Teste",
+            cpf="12345670088",
             tipo_vinculo=TipoVinculo.ALUNO,
             qr_code_hash="xxx",
         )

@@ -31,10 +31,10 @@ interface Movimentacao {
 interface Aluno {
   id: number;
   matricula: string;
-  nome_completo: string;
+  nome: string;
   curso: string;
   modalidade: string;
-  idade: number;
+  data_nascimento?: string;
   email: string;
   foto_url: string;
   status: boolean;
@@ -110,7 +110,7 @@ export default function AlunoDetailsPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2 md:gap-3">
               <h1 className="text-xl md:text-2xl font-bold text-slate-900">
-                {aluno.nome_completo}
+                {aluno.nome}
               </h1>
               <span
                 className={`px-2.5 py-1 rounded-full text-[10px] md:text-xs font-semibold uppercase tracking-wide ${aluno.status ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
@@ -159,10 +159,10 @@ export default function AlunoDetailsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 md:gap-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <p className="text-[11px] md:text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-2">
-                  <Users className="w-3.5 h-3.5" /> Nome Completo
+                  <Users className="w-3.5 h-3.5" /> Nome
                 </p>
                 <p className="text-sm md:text-base font-medium text-slate-900">
-                  {aluno.nome_completo}
+                  {aluno.nome}
                 </p>
               </div>
               <div className="border-b border-slate-100 pb-3">
@@ -372,7 +372,7 @@ export default function AlunoDetailsPage() {
                     Nome do Aluno
                   </p>
                   <p className="text-xs md:text-sm font-bold text-white leading-tight mb-2 line-clamp-2">
-                    {aluno.nome_completo.toUpperCase()}
+                    {aluno.nome.toUpperCase()}
                   </p>
 
                   <p className="text-[9px] md:text-[10px] text-primary-300 font-semibold uppercase mb-0.5">

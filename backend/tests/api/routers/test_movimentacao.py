@@ -23,8 +23,9 @@ def test_scan_qr_code_success(client: TestClient, db_session):
     if not pessoa:
         pessoa = Pessoa(
             id=1,
-            matricula="TEST1234",
+            matricula="20241EWBJ0002",
             nome="Test Student",
+            cpf="12345670088",
             tipo_vinculo="ALUNO",
             qr_code_hash="qr",
         )
