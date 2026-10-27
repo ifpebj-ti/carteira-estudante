@@ -11,13 +11,13 @@ module.exports = {
       },
       colors: {
         primary: {
-          50: "#f0f7ff",
-          100: "#e0effe",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          800: "#1e40af",
-          900: "#1e3a8a",
+          50: "#f0fdf4",   // Fundo muito claro (hover em elementos claros)
+          100: "#dcfce7",  // Fundo claro (tags ou badges)
+          500: "#22c55e",  // Verde base
+          600: "#16a34a",  // Verde principal (botões e destaques)
+          700: "#15803d",  // Verde escuro (hover de botões)
+          800: "#166534",  // Verde muito escuro (bordas)
+          900: "#14532d",  // Verde institucional profundo (sidebar e cabeçalhos escuros)
         },
       },
     },
