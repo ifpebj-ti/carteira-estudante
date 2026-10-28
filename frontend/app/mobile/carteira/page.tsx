@@ -1,6 +1,7 @@
 "use client";
 
 import { ShieldCheck, Download, ArrowLeft } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function DigitalWalletPage() {
   return (
@@ -25,7 +26,7 @@ export default function DigitalWalletPage() {
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-primary-200" />
               <span className="text-[10px] font-bold uppercase tracking-wider text-primary-200">
-                Carteira de Estudante
+                Carteira de Estudante Interno
               </span>
             </div>
             <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse"></span>
@@ -33,20 +34,24 @@ export default function DigitalWalletPage() {
 
           <div className="flex gap-4 items-center">
             <div className="w-20 h-24 bg-white/10 rounded-xl overflow-hidden border-2 border-white/20 shrink-0">
-              {/* Foto do Aluno */}
+              <img
+                src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150"
+                alt="Foto"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
               <h2 className="text-base font-bold leading-tight">
-                {/* Nome */}
+                João da Silva
               </h2>
               <p className="text-xs text-primary-200 mt-1">
                 Matrícula:{" "}
-                <span className="text-white font-semibold">{/* Matrícula */}</span>
+                <span className="text-white font-semibold">2023102457</span>
               </p>
               <p className="text-xs text-primary-200 mt-0.5">
                 Curso:{" "}
                 <span className="text-white font-semibold">
-                  {/* Curso */}
+                  Engenharia de Computação
                 </span>
               </p>
             </div>
@@ -56,7 +61,7 @@ export default function DigitalWalletPage() {
         {/* Seção do QR Code Central */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 flex flex-col items-center text-center">
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-inner mb-3">
-            {/* QR Code */}
+            <QRCodeSVG value="joao-silva-2023102457-hash-dinamico" size={180} />
           </div>
           <p className="text-xs text-slate-500 max-w-[240px]">
             Apresente este QR Code nas entradas e saídas do campus.

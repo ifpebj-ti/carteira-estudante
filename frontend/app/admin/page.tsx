@@ -1,26 +1,71 @@
-'use client';
+"use client";
 
-import { 
-  Users, Activity, ArrowUpRight, ArrowDownRight, 
-  UserPlus, ChevronRight 
-} from 'lucide-react';
+import {
+  Users,
+  Activity,
+  ArrowUpRight,
+  ArrowDownRight,
+  UserPlus,
+  ChevronRight,
+} from "lucide-react";
+
+// --- MOCK DATA ---
+const recentMovementsData = [
+  {
+    id: 1,
+    name: "Ricardo Oliveira",
+    type: "ENTRADA",
+    date: "24 Mai 2024",
+    time: "14:25",
+  },
+  {
+    id: 2,
+    name: "Mariana Santos",
+    type: "SAIDA",
+    date: "24 Mai 2024",
+    time: "14:18",
+  },
+  {
+    id: 3,
+    name: "Carlos Eduardo",
+    type: "ENTRADA",
+    date: "24 Mai 2024",
+    time: "13:55",
+  },
+  {
+    id: 4,
+    name: "Ana Beatriz Souza",
+    type: "SAIDA",
+    date: "24 Mai 2024",
+    time: "13:42",
+  },
+  {
+    id: 5,
+    name: "Fernando Costa",
+    type: "ENTRADA",
+    date: "24 Mai 2024",
+    time: "13:30",
+  },
+];
 
 // --- MAIN PAGE ---
 export default function DashboardPage() {
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8">
-      
       {/* Welcome Banner */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary-50 rounded-full blur-3xl -mr-20 -mt-20 z-0"></div>
-        
+
         <div className="relative z-10">
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">Bem-vindo ao Painel Administrativo</h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
+            Bem-vindo ao Painel Administrativo
+          </h2>
           <p className="text-sm md:text-base text-slate-500 max-w-xl">
-            Gerencie identidades estudantis, monitore acessos em tempo real e emita carteiras digitais com segurança.
+            Gerencie identidades estudantis, monitore acessos em tempo real e
+            emita carteiras digitais com segurança.
           </p>
         </div>
-        
+
         <div className="relative z-10 shrink-0 w-full md:w-auto">
           <button className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold px-6 py-3 rounded-xl shadow-sm shadow-primary-600/20 transition-all active:scale-[0.98]">
             <UserPlus className="w-5 h-5" /> Editar Aluno
@@ -30,17 +75,20 @@ export default function DashboardPage() {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div className="flex items-center gap-3 mb-4">
             <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600">
               <Users className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Total de Alunos</h3>
+            <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">
+              Total de Alunos
+            </h3>
           </div>
           <div className="flex items-end justify-between">
-            <span className="text-3xl font-bold text-slate-900">x</span>
-            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md">↑ x1% em relação a ontem</span>
+            <span className="text-3xl font-bold text-slate-900">256</span>
+            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md">
+              ↑ 12% em relação a ontem
+            </span>
           </div>
         </div>
 
@@ -49,11 +97,15 @@ export default function DashboardPage() {
             <div className="bg-primary-50 p-2.5 rounded-xl text-primary-600">
               <Activity className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Movimentações Hoje</h3>
+            <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">
+              Movimentações Hoje
+            </h3>
           </div>
           <div className="flex items-end justify-between">
-            <span className="text-3xl font-bold text-slate-900">y</span>
-            <span className="text-xs font-medium text-slate-500">Fluxo em tempo real</span>
+            <span className="text-3xl font-bold text-slate-900">242</span>
+            <span className="text-xs font-medium text-slate-500">
+              Fluxo em tempo real
+            </span>
           </div>
         </div>
 
@@ -62,11 +114,15 @@ export default function DashboardPage() {
             <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600">
               <ArrowUpRight className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Entradas</h3>
+            <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">
+              Entradas
+            </h3>
           </div>
           <div className="flex items-end justify-between">
-            <span className="text-3xl font-bold text-emerald-600">z</span>
-            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md">↑ z1%</span>
+            <span className="text-3xl font-bold text-emerald-600">128</span>
+            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md">
+              ↑ 5%
+            </span>
           </div>
         </div>
 
@@ -75,25 +131,32 @@ export default function DashboardPage() {
             <div className="bg-rose-50 p-2.5 rounded-xl text-rose-600">
               <ArrowDownRight className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Saídas</h3>
+            <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">
+              Saídas
+            </h3>
           </div>
           <div className="flex items-end justify-between">
-            <span className="text-3xl font-bold text-rose-600">w</span>
-            <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-1 rounded-md">↓ w1%</span>
+            <span className="text-3xl font-bold text-rose-600">114</span>
+            <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-1 rounded-md">
+              ↓ 2%
+            </span>
           </div>
         </div>
-        
       </div>
 
       {/* Recent Movements Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="p-5 md:p-6 border-b border-slate-200 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Movimentações Recentes</h3>
-            <p className="text-xs text-slate-500 mt-1">Últimos registros de acesso nas dependências da universidade.</p>
+            <h3 className="text-lg font-bold text-slate-900">
+              Movimentações Recentes
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Últimos registros de acesso nas dependências da universidade.
+            </p>
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
@@ -105,18 +168,43 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
-              {/* Dados */}
+              {recentMovementsData.map((mov) => (
+                <tr
+                  key={mov.id}
+                  className="hover:bg-slate-50/50 transition-colors"
+                >
+                  <td className="py-3.5 px-6 font-medium text-slate-900 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
+                      {mov.name.charAt(0)}
+                    </div>
+                    {mov.name}
+                  </td>
+                  <td className="py-3.5 px-6">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${mov.type === "ENTRADA" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-700 border-rose-200"}`}
+                    >
+                      {mov.type === "ENTRADA" ? "Entrada" : "Saída"}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-6 text-slate-600">{mov.date}</td>
+                  <td className="py-3.5 px-6 text-slate-500 font-mono text-xs">
+                    {mov.time}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-        
+
         <div className="p-4 bg-slate-50/80 border-t border-slate-200 flex justify-center">
-          <a href="/admin/movimentacoes" className="text-sm font-semibold text-primary-600 hover:text-primary-800 flex items-center gap-1 transition-colors">
+          <a
+            href="/admin/movimentacoes"
+            className="text-sm font-semibold text-primary-600 hover:text-primary-800 flex items-center gap-1 transition-colors"
+          >
             Ver Tudo <ChevronRight className="w-4 h-4" />
           </a>
         </div>
       </div>
-
     </div>
   );
 }
