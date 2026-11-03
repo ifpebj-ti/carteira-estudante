@@ -1,12 +1,33 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.security import RoleChecker
 from app.core.database import get_db
+from app.models.enums import PerfilOperador
 from app.models.pessoa import Pessoa
 from app.schemas.movimentacao import MovimentacaoResponse
-from app.schemas.pessoa import PessoaDetailResponse
+from app.schemas.pessoa import PessoaDetailResponse, PessoaResponse
 
 router = APIRouter(prefix="/pessoas", tags=["Pessoas"])
+
+
+@router.get(
+    "",
+    response_model=list[PessoaResponse],
+    dependencies=[Depends(RoleChecker([PerfilOperador.ADMIN]))],
+)
+def list_pessoas(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(Pessoa)
+        .filter(Pessoa.deleted_at.is_(None))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/{matricula}", response_model=PessoaDetailResponse)
