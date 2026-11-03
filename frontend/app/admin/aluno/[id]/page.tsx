@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import {
   FileText,
   Settings,
@@ -126,14 +126,17 @@ export default function AlunoDetailsPage() {
       {/* Cabeçalho da Página */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 md:mb-8 gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 md:w-16 md:h-16 bg-slate-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden shrink-0">
-            <img
+          <div className="relative w-14 h-14 md:w-16 md:h-16 bg-slate-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden shrink-0">
+            <Image
               src={
                 aluno.foto_url ||
                 "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
               }
               alt={aluno.nome}
-              className="w-full h-full object-cover"
+              fill
+              sizes="64px"
+              className="object-cover"
+              unoptimized
             />
           </div>
           <div>
@@ -413,14 +416,17 @@ export default function AlunoDetailsPage() {
               </div>
 
               <div className="p-4 md:p-5 flex gap-3 md:gap-4">
-                <div className="w-16 h-20 md:w-20 md:h-24 bg-white/10 rounded-lg shrink-0 overflow-hidden border-2 border-white/20">
-                  <img
+                <div className="relative w-16 h-20 md:w-20 md:h-24 bg-white/10 rounded-lg shrink-0 overflow-hidden border-2 border-white/20">
+                  <Image
                     src={
                       aluno.foto_url ||
                       "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80"
                     }
                     alt="Foto do aluno"
-                    className="w-full h-full object-cover"
+                    fill
+                    sizes="96px"
+                    className="object-cover"
+                    unoptimized
                   />
                 </div>
                 <div className="flex flex-col justify-center">

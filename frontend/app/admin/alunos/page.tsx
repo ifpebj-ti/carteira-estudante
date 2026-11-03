@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -15,7 +15,6 @@ import {
   Loader2,
   RefreshCw,
   X,
-  Database,
 } from "lucide-react";
 
 // Interface alinhada com o modelo real do banco de dados (Pessoa)
@@ -32,176 +31,6 @@ export interface Aluno {
   foto_url?: string;
 }
 
-// Dados discentes oficiais do IFPE Belo Jardim (baseados no seed_db.py do backend)
-// Utilizados como fallback automático quando a rota do backend retornar 404 (ainda em deploy)
-const ALUNOS_SEED_IFPE: Aluno[] = [
-  {
-    id: 1,
-    nome: "Ricardo Oliveira Santos",
-    matricula: "20241EWBJ0001",
-    cpf: "12345670088",
-    curso: "Engenharia de Software",
-    modalidade: "Superior",
-    status_matricula: "Ativo",
-    status: true,
-    email: "rs1@discente.ifpe.edu.br",
-  },
-  {
-    id: 2,
-    nome: "Gustavo Nogueira de Araújo",
-    matricula: "20241EWBJ0002",
-    cpf: "12345677366",
-    curso: "Engenharia de Software",
-    modalidade: "Superior",
-    status_matricula: "Ativo",
-    status: true,
-    email: "gna1@discente.ifpe.edu.br",
-  },
-  {
-    id: 3,
-    nome: "João da Silva",
-    matricula: "20241ADBJ0001",
-    cpf: "12345684644",
-    curso: "Análise e Desenvolvimento de Sistemas",
-    modalidade: "Superior",
-    status_matricula: "Ativo",
-    status: true,
-    email: "js1@discente.ifpe.edu.br",
-  },
-  {
-    id: 4,
-    nome: "Thiago Martins Barbosa",
-    matricula: "20241ADBJ0002",
-    cpf: "12345691922",
-    curso: "Análise e Desenvolvimento de Sistemas",
-    modalidade: "Superior",
-    status_matricula: "Ativo",
-    status: true,
-    email: "tmb1@discente.ifpe.edu.br",
-  },
-  {
-    id: 5,
-    nome: "Mariana Santos Costa",
-    matricula: "20241MUBJ0001",
-    cpf: "12345699200",
-    curso: "Licenciatura em Música",
-    modalidade: "Superior",
-    status_matricula: "Ativo",
-    status: true,
-    email: "msc1@discente.ifpe.edu.br",
-  },
-  {
-    id: 6,
-    nome: "Beatriz Vasconcelos",
-    matricula: "20241MUBJ0002",
-    cpf: "12345706478",
-    curso: "Licenciatura em Música",
-    modalidade: "Superior",
-    status_matricula: "Ativo",
-    status: true,
-    email: "bv1@discente.ifpe.edu.br",
-  },
-  {
-    id: 7,
-    nome: "Carlos Eduardo Lima",
-    matricula: "20241APBJ0001",
-    cpf: "12345713756",
-    curso: "Agropecuária",
-    modalidade: "Integrado",
-    status_matricula: "Ativo",
-    status: true,
-    email: "cel1@discente.ifpe.edu.br",
-  },
-  {
-    id: 8,
-    nome: "Larissa Cavalcanti",
-    matricula: "20241AGBJ0001",
-    cpf: "12345721034",
-    curso: "Agroindústria",
-    modalidade: "Integrado",
-    status_matricula: "Ativo",
-    status: true,
-    email: "lc1@discente.ifpe.edu.br",
-  },
-  {
-    id: 9,
-    nome: "Pedro Santos",
-    matricula: "20241INBJ0001",
-    cpf: "12345728312",
-    curso: "Informática para Internet",
-    modalidade: "Integrado",
-    status_matricula: "Suspenso",
-    status: false,
-    email: "ps1@discente.ifpe.edu.br",
-  },
-  {
-    id: 10,
-    nome: "Maria Oliveira",
-    matricula: "20241AGBJ0002",
-    cpf: "12345735590",
-    curso: "Agroindústria",
-    modalidade: "Subsequente",
-    status_matricula: "Ativo",
-    status: true,
-    email: "mo1@discente.ifpe.edu.br",
-  },
-  {
-    id: 11,
-    nome: "Camila Duarte Nogueira",
-    matricula: "20241APBJ0002",
-    cpf: "12345742868",
-    curso: "Agropecuária",
-    modalidade: "Subsequente",
-    status_matricula: "Ativo",
-    status: true,
-    email: "cdn1@discente.ifpe.edu.br",
-  },
-  {
-    id: 12,
-    nome: "Ana Beatriz Souza",
-    matricula: "20241ENBJ0001",
-    cpf: "12345750146",
-    curso: "Enfermagem",
-    modalidade: "Subsequente",
-    status_matricula: "Inativo",
-    status: false,
-    email: "abs1@discente.ifpe.edu.br",
-  },
-  {
-    id: 13,
-    nome: "Gabriel Henrique Rocha",
-    matricula: "20241INBJ0002",
-    cpf: "12345757424",
-    curso: "Informática para Internet",
-    modalidade: "Subsequente",
-    status_matricula: "Ativo",
-    status: true,
-    email: "ghr1@discente.ifpe.edu.br",
-  },
-  {
-    id: 14,
-    nome: "Juliana Ferreira Alves",
-    matricula: "20241ETBJ0001",
-    cpf: "12345764702",
-    curso: "Especialização Técnica em Enfermagem do Trabalho",
-    modalidade: "Especialização Técnica",
-    status_matricula: "Ativo",
-    status: true,
-    email: "jfa1@discente.ifpe.edu.br",
-  },
-  {
-    id: 15,
-    nome: "Lucas Mendes Ribeiro",
-    matricula: "20241ESBJ0001",
-    cpf: "12345771980",
-    curso: "Pós-Graduação em Enfermagem em Saúde da Família e Comunidade",
-    modalidade: "Pós-Graduação",
-    status_matricula: "Ativo",
-    status: true,
-    email: "lmr1@discente.ifpe.edu.br",
-  },
-];
-
 // Máscara utilitária rápida para formatação de CPF (XXX.XXX.XXX-XX)
 function formatarCPF(cpf: string): string {
   if (!cpf) return "--";
@@ -213,8 +42,8 @@ function formatarCPF(cpf: string): string {
 export default function StudentListPage() {
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [isFallback, setIsFallback] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [gatilhoRecarga, setGatilhoRecarga] = useState(0);
 
   // Estados dos Filtros Reativos
   const [termoBusca, setTermoBusca] = useState("");
@@ -226,66 +55,87 @@ export default function StudentListPage() {
   const [paginaAtual, setPaginaAtual] = useState(1);
   const itensPorPagina = 8;
 
-  // Busca de dados com fallback inteligente quando o backend ainda não possui a rota
-  const buscarAlunos = useCallback(async () => {
+  // Handlers para filtros que resetam a paginação diretamente no evento
+  const handleBuscaChange = (valor: string) => {
+    setTermoBusca(valor);
+    setPaginaAtual(1);
+  };
+
+  const handleFiltroStatusChange = (valor: "" | "VALIDO" | "SUSPENSO") => {
+    setFiltroStatus(valor);
+    setPaginaAtual(1);
+  };
+
+  const handleLimparFiltros = () => {
+    setTermoBusca("");
+    setFiltroStatus("");
+    setPaginaAtual(1);
+  };
+
+  // Handler para recarga manual
+  const handleRecarregar = () => {
     setCarregando(true);
     setErro(null);
+    setGatilhoRecarga((prev) => prev + 1);
+  };
 
-    try {
-      // 1. Tenta requisitar diretamente ao backend FastAPI
-      const res = await fetch("http://localhost:8000/api/v1/pessoas", {
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      if (!res.ok) {
-        if (res.status === 404) {
-          // O backend ainda não possui o endpoint de listagem implementado.
-          // Ativamos o fallback com os dados do seed do campus para a tela funcionar perfeitamente.
-          console.warn(
-            "Backend retornou 404 para /api/v1/pessoas. Utilizando dados cadastrais locais do campus."
-          );
-          setAlunos(ALUNOS_SEED_IFPE);
-          setIsFallback(true);
-          setErro(
-            "O endpoint /api/v1/pessoas ainda não está ativo no backend (HTTP 404). Exibindo dados discentes oficiais do campus via catálogo local."
-          );
-          return;
-        }
-        throw new Error(`Erro na resposta do backend: status ${res.status}`);
-      }
-
-      const data = await res.json();
-      console.log("DADOS VINDOS DO BACKEND:", data);
-
-      if (Array.isArray(data) && data.length > 0) {
-        setAlunos(data);
-        setIsFallback(false);
-      } else {
-        // Se retornar array vazio do backend, utiliza o catálogo do campus
-        setAlunos(ALUNOS_SEED_IFPE);
-        setIsFallback(true);
-      }
-    } catch (error) {
-      console.warn(
-        "Falha de conexão com a API. Ativando catálogo local do campus:",
-        error
-      );
-      // Fallback em caso de falha de conexão (servidor offline ou erro de rede)
-      setAlunos(ALUNOS_SEED_IFPE);
-      setIsFallback(true);
-      setErro(
-        "Backend temporariamente inacessível. Exibindo dados discentes sincronizados localmente."
-      );
-    } finally {
-      setCarregando(false);
-    }
-  }, []);
-
+  // Efeito para busca de dados compatível com as regras de efeito do React 19 / ESLint
   useEffect(() => {
-    buscarAlunos();
-  }, [buscarAlunos]);
+    let isMounted = true;
+
+    const carregarAlunos = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/pessoas", {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error(
+              "A rota de listagem (/api/v1/pessoas) ainda não foi disponibilizada no backend (HTTP 404). Aguardando liberação do endpoint pelo time de API."
+            );
+          }
+          throw new Error(
+            `Erro na requisição ao backend: status ${res.status}`
+          );
+        }
+
+        const data = await res.json();
+        console.log("DADOS VINDOS DO BACKEND:", data);
+
+        if (isMounted) {
+          if (Array.isArray(data)) {
+            setAlunos(data);
+          } else {
+            setAlunos([]);
+          }
+          setErro(null);
+        }
+      } catch (error) {
+        if (isMounted) {
+          const mensagem =
+            error instanceof Error
+              ? error.message
+              : "Falha ao se comunicar com o servidor do backend.";
+          console.error("Falha ao buscar a lista de pessoas:", error);
+          setErro(mensagem);
+          setAlunos([]);
+        }
+      } finally {
+        if (isMounted) {
+          setCarregando(false);
+        }
+      }
+    };
+
+    void carregarAlunos();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [gatilhoRecarga]);
 
   // Filtros aplicados em tempo real (Nome, Matrícula ou CPF + Status)
   const alunosFiltrados = useMemo(() => {
@@ -342,26 +192,12 @@ export default function StudentListPage() {
     return alunosFiltrados.slice(inicio, inicio + itensPorPagina);
   }, [alunosFiltrados, paginaAtual, itensPorPagina]);
 
-  // Resetar paginação ao filtrar
-  useEffect(() => {
-    setPaginaAtual(1);
-  }, [termoBusca, filtroStatus]);
-
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       {/* Cabeçalho da Página e Ações */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-2xl font-bold text-slate-900">
-              Lista de Alunos
-            </h2>
-            {isFallback && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                <Database className="w-3 h-3" /> Catálogo Local
-              </span>
-            )}
-          </div>
+          <h2 className="text-2xl font-bold text-slate-900">Lista de Alunos</h2>
           <p className="text-sm text-slate-500 mt-1">
             Gerencie o cadastro, status e acesso dos estudantes ao campus.
           </p>
@@ -437,24 +273,27 @@ export default function StudentListPage() {
         </div>
       </div>
 
-      {/* Banner Informativo quando o backend estiver pendente */}
-      {erro && isFallback && (
-        <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 shadow-xs">
-          <div className="flex items-start gap-2.5">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-800">
-              <span className="font-semibold">Modo de Consulta:</span> {erro}
-            </p>
+      {/* Banner Amigável de Erro / Aviso de Rota Pendente */}
+      {erro && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-amber-900 shadow-sm">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-semibold text-sm">
+                Aviso de Comunicação com a API
+              </h4>
+              <p className="text-xs text-amber-700 mt-0.5">{erro}</p>
+            </div>
           </div>
           <button
-            onClick={buscarAlunos}
+            onClick={handleRecarregar}
             disabled={carregando}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-amber-300 hover:bg-amber-100/70 text-amber-900 rounded-xl transition-colors shrink-0 disabled:opacity-50 cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-white border border-amber-300 hover:bg-amber-100/70 text-amber-900 rounded-xl transition-colors shrink-0 disabled:opacity-50 cursor-pointer shadow-xs"
           >
             <RefreshCw
-              className={`w-3 h-3 ${carregando ? "animate-spin" : ""}`}
+              className={`w-3.5 h-3.5 ${carregando ? "animate-spin" : ""}`}
             />
-            Sincronizar com Backend
+            Tentar Novamente
           </button>
         </div>
       )}
@@ -470,13 +309,13 @@ export default function StudentListPage() {
             <input
               type="text"
               value={termoBusca}
-              onChange={(e) => setTermoBusca(e.target.value)}
+              onChange={(e) => handleBuscaChange(e.target.value)}
               placeholder="Buscar por nome, matrícula ou CPF..."
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-9 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-colors"
             />
             {termoBusca && (
               <button
-                onClick={() => setTermoBusca("")}
+                onClick={handleLimparFiltros}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
                 title="Limpar busca"
               >
@@ -490,7 +329,9 @@ export default function StudentListPage() {
             <select
               value={filtroStatus}
               onChange={(e) =>
-                setFiltroStatus(e.target.value as "" | "VALIDO" | "SUSPENSO")
+                handleFiltroStatusChange(
+                  e.target.value as "" | "VALIDO" | "SUSPENSO"
+                )
               }
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 cursor-pointer transition-colors"
             >
@@ -499,10 +340,7 @@ export default function StudentListPage() {
               <option value="SUSPENSO">Acesso Bloqueado (Suspensos)</option>
             </select>
             <button
-              onClick={() => {
-                setTermoBusca("");
-                setFiltroStatus("");
-              }}
+              onClick={handleLimparFiltros}
               title="Limpar todos os filtros"
               className="bg-slate-900 hover:bg-slate-800 text-white p-2.5 rounded-xl transition-colors shrink-0 flex items-center justify-center cursor-pointer shadow-sm"
             >
@@ -531,7 +369,28 @@ export default function StudentListPage() {
                   <td colSpan={5} className="py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <Loader2 className="w-6 h-6 text-primary-600 animate-spin" />
-                      <span>Carregando dados dos alunos...</span>
+                      <span>Carregando dados dos alunos do banco...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : erro && alunos.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2 max-w-md mx-auto">
+                      <AlertCircle className="w-8 h-8 text-amber-500" />
+                      <p className="font-semibold text-slate-800">
+                        Não foi possível carregar os alunos
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        O backend ainda não disponibilizou o endpoint de
+                        consulta ou está temporariamente offline.
+                      </p>
+                      <button
+                        onClick={handleRecarregar}
+                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> Recarregar página
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -547,10 +406,7 @@ export default function StudentListPage() {
                       </p>
                       {alunos.length > 0 && (
                         <button
-                          onClick={() => {
-                            setTermoBusca("");
-                            setFiltroStatus("");
-                          }}
+                          onClick={handleLimparFiltros}
                           className="text-xs text-primary-600 hover:text-primary-700 font-medium cursor-pointer"
                         >
                           Limpar filtros de busca
@@ -567,10 +423,10 @@ export default function StudentListPage() {
                   >
                     <td className="py-4 px-6 font-medium text-slate-900">
                       <div>
-                        <span className="font-semibold">{aluno.nome}</span>
+                        <span>{aluno.nome}</span>
                         {aluno.curso && (
-                          <span className="block text-xs font-normal text-slate-500 mt-0.5">
-                            {aluno.curso} • {aluno.modalidade || "IFPE"}
+                          <span className="block text-xs font-normal text-slate-400 mt-0.5">
+                            {aluno.curso}
                           </span>
                         )}
                       </div>
@@ -595,22 +451,13 @@ export default function StudentListPage() {
                       )}
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        <Link
-                          href={`/admin/aluno/${aluno.matricula}`}
-                          className="text-slate-600 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-xs font-semibold cursor-pointer"
-                          title="Ver Detalhes"
-                        >
-                          Ver
-                        </Link>
-                        <Link
-                          href={`/admin/editar`}
-                          className="text-primary-600 hover:text-primary-800 p-1.5 rounded-lg hover:bg-primary-50 transition-colors inline-flex items-center gap-1 text-xs font-semibold cursor-pointer"
-                          title="Editar Aluno"
-                        >
-                          <Edit className="w-3.5 h-3.5" /> Editar
-                        </Link>
-                      </div>
+                      <Link
+                        href={`/admin/editar`}
+                        className="text-primary-600 hover:text-primary-800 p-2 rounded-lg hover:bg-primary-50 transition-colors inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                        title="Editar Aluno"
+                      >
+                        <Edit className="w-4 h-4" /> Editar
+                      </Link>
                     </td>
                   </tr>
                 ))

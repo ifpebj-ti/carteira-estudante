@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
@@ -64,7 +65,15 @@ export default function LoginPage() {
         {/* Cartão Central de Login */}
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 sm:p-10 flex flex-col">
           <div className="text-center sm:text-left mb-6">
-            <img src="/image.png"></img>
+            <div className="mb-4">
+              <Image
+                src="/image.png"
+                alt="Logótipo institucional IFPE"
+                width={480}
+                height={480}
+                className="mx-sm:mx-auto"
+              />
+            </div>
             <h3 className="text-2xl font-bold text-slate-900 mb-2">
               Acesse sua conta
             </h3>
@@ -87,7 +96,7 @@ export default function LoginPage() {
           {/* Botão de Login com o Google (Única Opção) */}
           <a
             href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/login/google`}
-            className="w-full relative flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:border-primary-500 hover:bg-slate-50 text-slate-800 font-bold text-sm py-4 px-4 rounded-xl transition-all duration-200 active:scale-[0.98] shadow-sm mt-auto"
+            className="w-full relative flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:border-primary-500 hover:bg-slate-50 text-slate-800 font-bold text-sm py-4 px-4 rounded-xl transition-all duration-200 active:scale-[0.98] shadow-sm mt-auto cursor-pointer"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
