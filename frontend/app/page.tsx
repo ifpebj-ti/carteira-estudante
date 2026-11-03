@@ -8,9 +8,7 @@ export default function LoginPage() {
       {/* Lado Esquerdo - Branding (Visível APENAS no Desktop) */}
       <div className="hidden md:flex md:w-1/2 bg-primary-900 relative flex-col justify-between p-12 overflow-hidden shrink-0 min-h-screen">
         {/* Imagem de Fundo do Campus com opacidade e gradiente */}
-        <div
-          className="absolute inset-0 z-0 opacity-60 bg-cover bg-center bg-no-repeat mix-blend-overlay"
-        ></div>
+        <div className="absolute inset-0 z-0 opacity-60 bg-cover bg-center bg-no-repeat mix-blend-overlay"></div>
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-primary-900/60 to-primary-950/70"></div>
 
         {/* Bloco de Identificação */}
