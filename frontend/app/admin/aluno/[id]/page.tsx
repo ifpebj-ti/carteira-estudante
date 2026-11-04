@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 import {
   FileText,
   Settings,
@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/Button";
-import { api } from "@/services/api";
 
 // --- INTERFACES ALINHADAS COM O BACKEND ---
 interface Movimentacao {
@@ -65,27 +64,52 @@ export default function AlunoDetailsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let isMounted = true;
     if (!id) return;
 
     const fetchAluno = async () => {
       setLoading(true);
       setError("");
       try {
-        // Chamada dinâmica usando a rota correta do backend FastAPI
-        const data = await api<Aluno>(`/api/v1/pessoas/${id}`);
-        setAluno(data);
+        // Fetch direto para facilitar a inserção do token local
+        const res = await fetch(`http://localhost:8000/api/v1/pessoas/${id}`, {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error(
+            `Erro na requisição ao backend: status ${res.status}`
+          );
+        }
+
+        const data = await res.json();
+
+        if (isMounted) {
+          setAluno(data);
+        }
       } catch (err) {
-        const errorObject = err as Error;
-        setError(
-          errorObject.message ||
-            "Erro ao carregar os dados do aluno no servidor."
-        );
+        if (isMounted) {
+          const errorObject = err as Error;
+          setError(
+            errorObject.message ||
+              "Erro ao carregar os dados do aluno no servidor."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchAluno();
+
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   if (loading) {
@@ -126,7 +150,7 @@ export default function AlunoDetailsPage() {
       {/* Cabeçalho da Página */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 md:mb-8 gap-6">
         <div className="flex items-center gap-4">
-          <div className="relative w-14 h-14 md:w-16 md:h-16 bg-slate-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden shrink-0">
+          <div className="relative w-14 h-14 md:w-16 md:h-16 bg-slate-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden shrink-0 z-0">
             <Image
               src={
                 aluno.foto_url ||
@@ -134,9 +158,8 @@ export default function AlunoDetailsPage() {
               }
               alt={aluno.nome}
               fill
-              sizes="64px"
+              sizes="(max-width: 768px) 56px, 64px"
               className="object-cover"
-              unoptimized
             />
           </div>
           <div>
@@ -416,7 +439,7 @@ export default function AlunoDetailsPage() {
               </div>
 
               <div className="p-4 md:p-5 flex gap-3 md:gap-4">
-                <div className="relative w-16 h-20 md:w-20 md:h-24 bg-white/10 rounded-lg shrink-0 overflow-hidden border-2 border-white/20">
+                <div className="relative w-16 h-20 md:w-20 md:h-24 bg-white/10 rounded-lg shrink-0 overflow-hidden border-2 border-white/20 z-0">
                   <Image
                     src={
                       aluno.foto_url ||
@@ -424,9 +447,8 @@ export default function AlunoDetailsPage() {
                     }
                     alt="Foto do aluno"
                     fill
-                    sizes="96px"
+                    sizes="(max-width: 768px) 64px, 80px"
                     className="object-cover"
-                    unoptimized
                   />
                 </div>
                 <div className="flex flex-col justify-center">
