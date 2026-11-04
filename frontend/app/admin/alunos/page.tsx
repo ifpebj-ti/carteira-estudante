@@ -228,10 +228,13 @@ export default function ListaAlunosPage() {
                             className="object-cover"
                           />
                         </div>
-                        <div>
-                          <p className="font-semibold text-slate-900">
+                        <div className="flex flex-col">
+                          <Link
+                            href={`/admin/aluno/${aluno.matricula}`}
+                            className="font-semibold text-slate-900 hover:text-primary-600 hover:underline transition-colors"
+                          >
                             {aluno.nome}
-                          </p>
+                          </Link>
                           <p className="text-xs text-slate-500">
                             {aluno.email}
                           </p>
