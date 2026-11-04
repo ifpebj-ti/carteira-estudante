@@ -39,9 +39,9 @@ export default function ListaAlunosPage() {
       try {
         setCarregando(true);
         const res = await fetch("http://localhost:8000/api/v1/pessoas", {
+          credentials: "include",
           headers: {
             Accept: "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
           },
         });
 
@@ -190,8 +190,13 @@ export default function ListaAlunosPage() {
                             className="object-cover"
                           />
                         </div>
-                        <div>
-                          <p className="font-semibold text-slate-900">{aluno.nome}</p>
+                        <div className="flex flex-col">
+                          <Link 
+                            href={`/admin/aluno/${aluno.matricula}`}
+                            className="font-semibold text-slate-900 hover:text-primary-600 hover:underline transition-colors"
+                          >
+                            {aluno.nome}
+                          </Link>
                           <p className="text-xs text-slate-500">{aluno.email}</p>
                         </div>
                       </div>

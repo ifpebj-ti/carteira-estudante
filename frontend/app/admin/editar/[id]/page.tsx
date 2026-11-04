@@ -113,10 +113,10 @@ export default function EditStudentPage() {
 
       const res = await fetch(`http://localhost:8000/api/v1/pessoas/${matricula}`, {
         method: "PATCH", // Se o erro disser "Method Not Allowed", mude isto para "PATCH"
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
         },
         body: JSON.stringify(dadosParaEnviar), 
       });
