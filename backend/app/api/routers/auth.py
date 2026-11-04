@@ -46,7 +46,9 @@ async def login_google(request: Request):
     """
     # redirect_uri deve ser a rota callback do nosso próprio backend
     redirect_uri = request.url_for("auth_callback")
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    return await oauth.google.authorize_redirect(
+        request, redirect_uri, prompt="select_account"
+    )
 
 
 @router.get("/callback")
@@ -96,9 +98,8 @@ async def auth_callback(
         {"sub": str(usuario.id), "email": usuario.login, "perfil": usuario.perfil}
     )
 
-    # Frontend URL de redirecionamento (ex: http://localhost:3000/admin/leitor)
-    # Por padrão, vamos jogar na raiz do admin no Next.js
-    frontend_url = "http://127.0.0.1:3000/admin"
+    # Redireciona para o frontend padronizado (ex: http://localhost:3000/admin)
+    frontend_url = f"{settings.FRONTEND_URL.rstrip('/')}/admin"
 
     redirect_resp = RedirectResponse(url=frontend_url)
 
@@ -120,7 +121,7 @@ async def logout():
     Rota para deslogar o usuário.
     Deleta o cookie 'access_token' e redireciona para a página de login.
     """
-    frontend_url = "http://127.0.0.1:3000/"
+    frontend_url = f"{settings.FRONTEND_URL.rstrip('/')}/"
     redirect_resp = RedirectResponse(url=frontend_url)
     redirect_resp.delete_cookie(
         key="access_token",
