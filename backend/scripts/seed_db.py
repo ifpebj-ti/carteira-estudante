@@ -67,8 +67,18 @@ def seed():
         # 1. Criar ou Obter Operadores do Sistema
         operadores_data = [
             {
-                "nome": "Julia Rocha (Administradora)",
-                "login": "admin.julia@ifpe.edu.br",
+                "nome": "Júlio César (Administrador)",
+                "login": "jcls1@discente.ifpe.edu.br",
+                "perfil": PerfilOperador.ADMIN,
+            },
+            {
+                "nome": "Gustavo Beserra (Administrador)",
+                "login": "gbm1@discente.ifpe.edu.br",
+                "perfil": PerfilOperador.ADMIN,
+            },
+            {
+                "nome": "Gustavo Namu (Administrador)",
+                "login": "gna1@discente.ifpe.edu.br",
                 "perfil": PerfilOperador.ADMIN,
             },
             {
