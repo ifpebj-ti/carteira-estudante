@@ -13,10 +13,17 @@ from app.models.usuario import UsuarioSistema
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> UsuarioSistema:
     """
-    Extrai e valida o token JWT dos cookies da requisição.
+    Extrai e valida o token JWT dos cookies HttpOnly ou do cabeçalho Authorization.
     Retorna o usuário logado (UsuarioSistema).
     """
     token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            bearer_token = auth_header.removeprefix("Bearer ").strip()
+            if bearer_token:
+                token = bearer_token
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

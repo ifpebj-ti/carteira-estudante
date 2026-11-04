@@ -15,11 +15,9 @@ export default function AdminLayout({
   const pathname = usePathname();
   const isActive = (path: string) => pathname?.includes(path);
 
-  // Como o dashboard é a página raiz (/admin), precisamos dessa verificação extra
   const isDashboard =
     pathname === "/admin" || pathname === "/admin/" || isActive("dashboard");
 
-  // Define o título do cabeçalho com base na URL
   const getPageTitle = () => {
     if (isDashboard) return "Dashboard";
     if (isActive("alunos")) return "Gestão de Alunos";
@@ -29,9 +27,20 @@ export default function AdminLayout({
     return "Administração";
   };
 
+  // --- NOVA FUNÇÃO DE LOGOUT (SEM NEXT-AUTH) ---
+  const handleLogout = () => {
+    // 1. Limpa o token do FastAPI guardado no navegador
+    localStorage.removeItem("token");
+
+    // 2. Redireciona para o backend encerrar a sessão (usando localhost para evitar erro de CORS)
+    // O backend deve estar configurado para redirecionar de volta para o frontend (/) após o logout
+    const apiBaseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    window.location.assign(`${apiBaseUrl}/api/v1/auth/logout`);
+  };
+
   return (
     <div className="h-screen w-full bg-slate-50 flex overflow-hidden text-slate-900">
-      {/* Overlay mobile */}
       {isMobileMenuOpen && (
         <div
           className="fixed inset-0 bg-slate-900/50 z-40 md:hidden transition-opacity"
@@ -130,19 +139,19 @@ export default function AdminLayout({
             </span>
           </div>
 
-          {/* Botão de Logout Direto */}
+          {/* Botão de Logout Corrigido */}
           <div className="flex items-center">
-            <a
-              href="http://127.0.0.1:8000/api/v1/auth/logout"
-              className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors border border-transparent hover:border-rose-200"
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors border border-transparent hover:border-rose-200 cursor-pointer"
             >
               <span className="hidden sm:inline">Sair da conta</span>
               <LogOut className="w-5 h-5" />
-            </a>
+            </button>
           </div>
         </header>
 
-        {/* O Next.js injeta a sua página exata aqui dentro automaticamente! */}
         <div className="flex-1 overflow-y-auto">{children}</div>
       </main>
     </div>

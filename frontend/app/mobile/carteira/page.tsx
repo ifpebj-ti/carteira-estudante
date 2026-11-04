@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { ShieldCheck, Download, ArrowLeft } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -8,7 +9,7 @@ export default function DigitalWalletPage() {
     <>
       {/* Sub-header de Navegação */}
       <div className="px-4 py-3 flex items-center justify-between bg-white/60 backdrop-blur-md border-b border-slate-100 z-10">
-        <button className="text-slate-600 hover:text-slate-900 p-1">
+        <button className="text-slate-600 hover:text-slate-900 p-1 cursor-pointer">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="font-bold text-slate-800 text-base">Minha Carteira</h1>
@@ -33,14 +34,17 @@ export default function DigitalWalletPage() {
           </div>
 
           <div className="flex gap-4 items-center">
-            <div className="w-20 h-24 bg-white/10 rounded-xl overflow-hidden border-2 border-white/20 shrink-0">
-              <img
+            {/* Div relativa para o Image fill funcionar */}
+            <div className="relative w-20 h-24 bg-white/10 rounded-xl overflow-hidden border-2 border-white/20 shrink-0 z-0">
+              <Image
                 src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150"
-                alt="Foto"
-                className="w-full h-full object-cover"
+                alt="Foto do aluno"
+                fill
+                sizes="80px"
+                className="object-cover"
               />
             </div>
-            <div>
+            <div className="z-10">
               <h2 className="text-base font-bold leading-tight">
                 João da Silva
               </h2>
@@ -90,7 +94,7 @@ export default function DigitalWalletPage() {
 
       {/* Rodapé fixo com botão de ação */}
       <footer className="absolute bottom-0 inset-x-0 bg-white/80 backdrop-blur-md p-4 border-t border-slate-200 z-20">
-        <button className="w-full flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-primary-600/30 transition-all active:scale-[0.98] text-sm">
+        <button className="w-full flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-primary-600/30 transition-all active:scale-[0.98] text-sm cursor-pointer">
           <Download className="w-4 h-4" /> Baixar Carteira (PDF)
         </button>
       </footer>

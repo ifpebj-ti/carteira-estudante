@@ -3,9 +3,9 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { AuthProvider } from "@/hooks/useAuth";
 
-const roboto = Roboto({ 
-  weight: ['400', '500', '700'],
-  subsets: ["latin"], 
+const roboto = Roboto({
+  weight: ["400", "500", "700"],
+  subsets: ["latin"],
   // Já não precisamos do 'variable' aqui!
 });
 
