@@ -133,7 +133,7 @@ export default function AdminLayout({
           {/* Botão de Logout Direto */}
           <div className="flex items-center">
             <a
-              href="http://127.0.0.1:8000/api/v1/auth/logout"
+              href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/logout`}
               className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors border border-transparent hover:border-rose-200"
             >
               <span className="hidden sm:inline">Sair da conta</span>

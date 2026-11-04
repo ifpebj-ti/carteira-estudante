@@ -73,10 +73,14 @@ export default function AlunoDetailsPage() {
       setCarregando(true);
       setErro("");
       try {
-        const res = await fetch(`http://localhost:8000/api/v1/pessoas/${matricula}`, {
+        const apiBaseUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${apiBaseUrl}/api/v1/pessoas/${matricula}`, {
+          credentials: "include",
           headers: {
             Accept: "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         });
 
@@ -117,9 +121,7 @@ export default function AlunoDetailsPage() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-slate-500">
         <Loader2 className="w-8 h-8 text-primary-600 animate-spin" />
-        <p className="font-medium text-sm">
-          Carregando dados do estudante...
-        </p>
+        <p className="font-medium text-sm">Carregando dados do estudante...</p>
       </div>
     );
   }
@@ -134,11 +136,12 @@ export default function AlunoDetailsPage() {
               Erro ao carregar perfil
             </h3>
             <p className="text-sm text-slate-600 max-w-md mx-auto mb-4">
-              {erro || "Não foi possível carregar os dados. Verifique se a API está online ou se a matrícula informada existe."}
+              {erro ||
+                "Não foi possível carregar os dados. Verifique se a API está online ou se a matrícula informada existe."}
             </p>
           </div>
           <div className="flex gap-3">
-            <Link 
+            <Link
               href="/admin/alunos"
               className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
             >
@@ -325,7 +328,10 @@ export default function AlunoDetailsPage() {
                     </tr>
                   ) : (
                     aluno.movimentacoes.map((mov) => (
-                      <tr key={mov.id} className="hover:bg-slate-50/50 transition-colors">
+                      <tr
+                        key={mov.id}
+                        className="hover:bg-slate-50/50 transition-colors"
+                      >
                         <td className="px-5 py-4">
                           <span
                             className={`inline-flex items-center gap-1.5 font-medium ${
@@ -377,9 +383,7 @@ export default function AlunoDetailsPage() {
                 Média Permanência
               </p>
               <div className="flex items-end justify-between mt-auto">
-                <span className="text-3xl font-bold text-slate-900">
-                  --
-                </span>
+                <span className="text-3xl font-bold text-slate-900">--</span>
                 <Clock className="w-5 h-5 text-slate-400" />
               </div>
             </div>
