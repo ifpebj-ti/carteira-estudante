@@ -42,7 +42,11 @@ COPY --from=builder /opt/venv /opt/venv
 
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY . .
+RUN useradd --system --user-group --home-dir /app app && chown app:app /app
+
+COPY --chown=app:app . .
+
+USER app
 
 EXPOSE 8000
 

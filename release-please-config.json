@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "3a856eadd814e27ba6c339e0081e972d5547eb2c",
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "carteira-estudante",
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "version-file": "version.txt"
+    }
+  }
+}
