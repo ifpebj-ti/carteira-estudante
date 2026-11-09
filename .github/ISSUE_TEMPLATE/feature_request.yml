@@ -1,0 +1,24 @@
+name: Proposta de melhoria
+description: Descreva uma necessidade, o resultado desejado e os critérios de aceite.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema ou necessidade
+      description: Quem é afetado e qual limitação existe hoje?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Objetivo e proposta
+      description: Descreva o comportamento desejado e alternativas consideradas.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critérios de aceite
+      description: Como verificar que a melhoria resolveu o problema?
+    validations:
+      required: true
