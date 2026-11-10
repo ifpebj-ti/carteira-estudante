@@ -1,8 +1,176 @@
 "use client";
 
-import { ArrowUpRight, ArrowDownRight, Download, Filter } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowUpRight, ArrowDownRight, Download, Filter, Loader2, AlertCircle } from "lucide-react";
+
+// --- INTERFACES ---
+interface Movimentacao {
+  id: number;
+  tipo: string;
+  data_hora: string;
+  pessoa: { nome: string; matricula: string };
+}
 
 export default function MovimentacoesPage() {
+  const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+
+  // --- ESTADOS PARA OS FILTROS ---
+  const [filtroNome, setFiltroNome] = useState("");
+  const [filtroMatricula, setFiltroMatricula] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("Todos");
+
+  // --- ESTADO PARA PAGINAÇÃO ---
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const itensPorPagina = 10;
+
+  // --- ESTADO PARA AS MÉTRICAS ---
+  const [metricas, setMetricas] = useState({
+    movimentacoesHoje: 0,
+    entradasHoje: 0,
+    saidasHoje: 0,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchTodasMovimentacoes = async () => {
+      try {
+        setCarregando(true);
+        
+        const resAlunos = await fetch("http://localhost:8000/api/v1/pessoas", {
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+
+        if (resAlunos.status === 401) {
+          window.location.href = "http://localhost:3000/";
+          return;
+        }
+
+        if (!resAlunos.ok) throw new Error(`Erro ao carregar alunos: ${resAlunos.status}`);
+        
+        const dadosAlunos = await resAlunos.json();
+        
+        if (isMounted) {
+          let listaBasica = [];
+          if (Array.isArray(dadosAlunos)) listaBasica = dadosAlunos;
+          else if (dadosAlunos.items) listaBasica = dadosAlunos.items;
+          else if (dadosAlunos.data) listaBasica = dadosAlunos.data;
+
+          let todasMovimentacoes: Movimentacao[] = [];
+
+          const promessasDetalhes = listaBasica.map(async (alunoBasico) => {
+            try {
+              const resDetalhe = await fetch(`http://localhost:8000/api/v1/pessoas/${alunoBasico.matricula}`, {
+                credentials: "include",
+                headers: { Accept: "application/json" },
+              });
+              
+              if (resDetalhe.ok) {
+                const alunoDetalhado = await resDetalhe.json();
+                
+                if (alunoDetalhado.movimentacoes && Array.isArray(alunoDetalhado.movimentacoes)) {
+                  const movsDoAluno = alunoDetalhado.movimentacoes.map((m: any) => ({
+                    ...m,
+                    pessoa: { nome: alunoDetalhado.nome, matricula: alunoDetalhado.matricula }
+                  }));
+                  todasMovimentacoes = [...todasMovimentacoes, ...movsDoAluno];
+                }
+              }
+            } catch (err) {
+              console.error(`Erro ao buscar detalhes do aluno ${alunoBasico.matricula}`, err);
+            }
+          });
+
+          await Promise.all(promessasDetalhes);
+
+          todasMovimentacoes.sort((a, b) => {
+            return new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime();
+          });
+
+          const hoje = new Date().toDateString();
+          let entradas = 0;
+          let saidas = 0;
+
+          todasMovimentacoes.forEach((mov) => {
+            const dataMovimento = new Date(mov.data_hora).toDateString();
+            if (dataMovimento === hoje) {
+              if (mov.tipo === "ENTRADA") entradas++;
+              if (mov.tipo === "SAIDA") saidas++;
+            }
+          });
+
+          setMetricas({
+            movimentacoesHoje: entradas + saidas,
+            entradasHoje: entradas,
+            saidasHoje: saidas,
+          });
+
+          setMovimentacoes(todasMovimentacoes);
+          setErro(null);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setErro(error instanceof Error ? error.message : "Erro desconhecido");
+        }
+      } finally {
+        if (isMounted) {
+          setCarregando(false);
+        }
+      }
+    };
+
+    fetchTodasMovimentacoes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // --- VOLTA PARA A PÁGINA 1 AO FILTRAR ---
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [filtroNome, filtroMatricula, filtroTipo]);
+
+  // --- LÓGICA DE FILTRAGEM ---
+  const movimentacoesFiltradas = movimentacoes.filter((mov) => {
+    const matchNome = mov.pessoa.nome.toLowerCase().includes(filtroNome.toLowerCase());
+    const matchMatricula = mov.pessoa.matricula.toLowerCase().includes(filtroMatricula.toLowerCase());
+    const matchTipo =
+      filtroTipo === "Todos" ||
+      (filtroTipo === "Entrada" && mov.tipo === "ENTRADA") ||
+      (filtroTipo === "Saída" && mov.tipo === "SAIDA");
+
+    return matchNome && matchMatricula && matchTipo;
+  });
+
+  // --- LÓGICA DE PAGINAÇÃO ---
+  const totalPaginas = Math.ceil(movimentacoesFiltradas.length / itensPorPagina);
+  const indiceUltimoItem = paginaAtual * itensPorPagina;
+  const indicePrimeiroItem = indiceUltimoItem - itensPorPagina;
+  const itensAtuais = movimentacoesFiltradas.slice(indicePrimeiroItem, indiceUltimoItem);
+
+  const formatarData = (dataIso: string) => {
+    try {
+      return new Date(dataIso).toLocaleDateString("pt-BR");
+    } catch {
+      return dataIso;
+    }
+  };
+
+  const formatarHora = (dataIso: string) => {
+    try {
+      return new Date(dataIso).toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "--:--";
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
       {/* Título e Ação principal */}
@@ -27,7 +195,9 @@ export default function MovimentacoesPage() {
             Movimentos Hoje
           </p>
           <div className="flex items-baseline justify-between mt-3">
-            <span className="text-3xl font-bold text-slate-900">1.482</span>
+            <span className="text-3xl font-bold text-slate-900">
+              {carregando ? "-" : metricas.movimentacoesHoje}
+            </span>
             <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
               Total
             </span>
@@ -38,7 +208,9 @@ export default function MovimentacoesPage() {
             Entradas Hoje
           </p>
           <div className="flex items-baseline justify-between mt-3">
-            <span className="text-3xl font-bold text-emerald-600">756</span>
+            <span className="text-3xl font-bold text-emerald-600">
+              {carregando ? "-" : metricas.entradasHoje}
+            </span>
             <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-0.5">
               <ArrowUpRight className="w-3 h-3" /> Acessos
             </span>
@@ -49,7 +221,9 @@ export default function MovimentacoesPage() {
             Saídas Hoje
           </p>
           <div className="flex items-baseline justify-between mt-3">
-            <span className="text-3xl font-bold text-rose-600">726</span>
+            <span className="text-3xl font-bold text-rose-600">
+              {carregando ? "-" : metricas.saidasHoje}
+            </span>
             <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md flex items-center gap-0.5">
               <ArrowDownRight className="w-3 h-3" /> Acessos
             </span>
@@ -71,6 +245,8 @@ export default function MovimentacoesPage() {
             </label>
             <input
               type="text"
+              value={filtroNome}
+              onChange={(e) => setFiltroNome(e.target.value)}
               placeholder="Buscar por nome..."
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
             />
@@ -82,24 +258,28 @@ export default function MovimentacoesPage() {
             </label>
             <input
               type="text"
+              value={filtroMatricula}
+              onChange={(e) => setFiltroMatricula(e.target.value)}
               placeholder="Nº Matrícula"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
             />
           </div>
 
-          {/* Botão de filtro atualizado e agrupado com o Select */}
           <div className="flex items-end gap-2">
             <div className="w-full">
               <label className="block text-xs font-medium text-slate-500 mb-1.5">
                 Tipo de Movimento
               </label>
-              <select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500">
-                <option>Todos</option>
-                <option>Entrada</option>
-                <option>Saída</option>
+              <select 
+                value={filtroTipo}
+                onChange={(e) => setFiltroTipo(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+              >
+                <option value="Todos">Todos</option>
+                <option value="Entrada">Entrada</option>
+                <option value="Saída">Saída</option>
               </select>
             </div>
-            {/* O botão quadrado escuro com o ícone, igual à lista de alunos */}
             <button className="bg-slate-900 hover:bg-slate-800 text-white p-2.5 rounded-xl transition-colors shrink-0 flex items-center justify-center h-[42px]">
               <Filter className="w-5 h-5" />
             </button>
@@ -107,7 +287,7 @@ export default function MovimentacoesPage() {
         </div>
       </div>
 
-      {/* Table Section com suporte a scroll horizontal no mobile */}
+      {/* Table Section */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[650px]">
@@ -121,64 +301,90 @@ export default function MovimentacoesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-              <tr className="hover:bg-slate-50/50 transition-colors">
-                <td className="py-4 px-6 font-medium text-slate-900 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
-                    RO
-                  </div>
-                  Ricardo Oliveira Santos
-                </td>
-                <td className="py-4 px-6 text-slate-500">2024010582</td>
-                <td className="py-4 px-6">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                    <ArrowUpRight className="w-3.5 h-3.5" /> Entrada
-                  </span>
-                </td>
-                <td className="py-4 px-6 text-slate-500">24/05/2026</td>
-                <td className="py-4 px-6 text-slate-500 font-mono text-xs">
-                  14:25
-                </td>
-              </tr>
-              <tr className="hover:bg-slate-50/50 transition-colors">
-                <td className="py-4 px-6 font-medium text-slate-900 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
-                    MS
-                  </div>
-                  Mariana Santos Silva
-                </td>
-                <td className="py-4 px-6 text-slate-500">2023021145</td>
-                <td className="py-4 px-6">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-100">
-                    <ArrowDownRight className="w-3.5 h-3.5" /> Saída
-                  </span>
-                </td>
-                <td className="py-4 px-6 text-slate-500">24/05/2026</td>
-                <td className="py-4 px-6 text-slate-500 font-mono text-xs">
-                  14:18
-                </td>
-              </tr>
+              {erro ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-rose-500">
+                    <AlertCircle className="w-6 h-6 mx-auto mb-2" />
+                    <p className="font-semibold">Erro ao carregar movimentações</p>
+                    <p className="text-xs mt-1">{erro}</p>
+                  </td>
+                </tr>
+              ) : carregando ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-slate-500">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-600 mb-2" />
+                    Buscando dados no servidor...
+                  </td>
+                </tr>
+              ) : itensAtuais.length > 0 ? (
+                // Aqui iteramos sobre 'itensAtuais' em vez de 'movimentacoesFiltradas' inteira
+                itensAtuais.map((mov, index) => (
+                  <tr key={`${mov.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="py-4 px-6 font-medium text-slate-900 flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0 uppercase">
+                        {mov.pessoa.nome.charAt(0)}
+                      </div>
+                      {mov.pessoa.nome}
+                    </td>
+                    <td className="py-4 px-6 text-slate-500">{mov.pessoa.matricula}</td>
+                    <td className="py-4 px-6">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          mov.tipo === "ENTRADA"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                            : "bg-rose-50 text-rose-700 border-rose-100"
+                        }`}
+                      >
+                        {mov.tipo === "ENTRADA" ? (
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        ) : (
+                          <ArrowDownRight className="w-3.5 h-3.5" />
+                        )}
+                        {mov.tipo === "ENTRADA" ? "Entrada" : "Saída"}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6 text-slate-500">{formatarData(mov.data_hora)}</td>
+                    <td className="py-4 px-6 text-slate-500 font-mono text-xs">
+                      {formatarHora(mov.data_hora)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-slate-500">
+                    Nenhuma movimentação encontrada com os filtros selecionados.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination footer */}
+        {/* Rodapé de Paginação Funcional */}
         <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs md:text-sm text-slate-500">
           <span>
-            Mostrando <span className="font-medium text-slate-700">1-2</span> de{" "}
-            <span className="font-medium text-slate-700">256</span> resultados
+            Mostrando <span className="font-medium text-slate-700">
+              {movimentacoesFiltradas.length > 0 ? indicePrimeiroItem + 1 : 0} - {Math.min(indiceUltimoItem, movimentacoesFiltradas.length)}
+            </span> de{" "}
+            <span className="font-medium text-slate-700">{movimentacoesFiltradas.length}</span> resultados filtrados
           </span>
-          <div className="flex items-center gap-1.5">
-            <button className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 text-xs font-medium">
+          
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setPaginaAtual(prev => Math.max(prev - 1, 1))}
+              disabled={paginaAtual === 1 || carregando}
+              className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium transition-colors"
+            >
               Anterior
             </button>
-            <button className="px-3 py-1.5 border border-primary-600 rounded-xl bg-primary-600 text-white font-medium text-xs">
-              1
-            </button>
-            <button className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 hidden sm:block text-xs font-medium">
-              2
-            </button>
-            <span className="px-1 text-slate-400 hidden sm:block">...</span>
-            <button className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 text-xs font-medium">
+            <span className="text-xs font-medium text-slate-600">
+              Página {paginaAtual} de {totalPaginas || 1}
+            </span>
+            <button 
+              onClick={() => setPaginaAtual(prev => Math.min(prev + 1, totalPaginas))}
+              disabled={paginaAtual === totalPaginas || totalPaginas === 0 || carregando}
+              className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium transition-colors"
+            >
               Próximo
             </button>
           </div>

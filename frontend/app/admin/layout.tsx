@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogOut } from "lucide-react";
 
@@ -10,8 +10,10 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // --- NOVO ESTADO PARA O EMAIL DO USUÁRIO LOGADO ---
+  const [userEmail, setUserEmail] = useState<string>("Carregando...");
 
-  // Pegamos a URL atual para saber qual menu deixar "aceso"
   const pathname = usePathname();
   const isActive = (path: string) => pathname?.includes(path);
 
@@ -27,13 +29,44 @@ export default function AdminLayout({
     return "Administração";
   };
 
-  // --- NOVA FUNÇÃO DE LOGOUT (SEM NEXT-AUTH) ---
+  // --- BUSCAR DADOS DO USUÁRIO NA API (QUANDO O LAYOUT CARREGA) ---
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchUserProfile = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/auth/me", { // Altere a rota se necessário
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
+          }
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.email) {
+             // O backend precisa retornar um campo "email" na rota /auth/me
+             setUserEmail(data.email); 
+          } else {
+             setUserEmail("Usuário Desconhecido");
+          }
+        } else {
+           setUserEmail("Sessão Inválida");
+        }
+      } catch (error) {
+         if (isMounted) setUserEmail("Erro de conexão");
+      }
+    };
+
+    fetchUserProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleLogout = () => {
-    // 1. Limpa o token do FastAPI guardado no navegador
     localStorage.removeItem("token");
-    
-    // 2. Redireciona para o backend encerrar a sessão (usando localhost para evitar erro de CORS)
-    // O backend deve estar configurado para redirecionar de volta para o frontend (/) após o logout
     window.location.href = "http://localhost:8000/api/v1/auth/logout";
   };
 
@@ -103,14 +136,18 @@ export default function AdminLayout({
             </a>
           </nav>
         </div>
+        
+        {/* --- PERFIL DO USUÁRIO ATUALIZADO --- */}
         <div className="p-4 border-t border-white/10 flex items-center gap-3 mb-4 md:mb-0">
-          <div className="w-9 h-9 rounded-full bg-white/10 text-white font-bold flex items-center justify-center text-sm border border-white/20 shrink-0">
-            AG
+          <div className="w-9 h-9 rounded-full bg-white/10 text-white font-bold flex items-center justify-center text-sm border border-white/20 shrink-0 uppercase">
+            {/* Pega a primeira letra do email ou 'A' como fallback */}
+            {userEmail !== "Carregando..." && userEmail !== "Erro de conexão" ? userEmail.charAt(0) : "A"}
           </div>
           <div className="overflow-hidden">
-            <p className="text-xs font-bold text-white truncate">Adm. Geral</p>
-            <p className="text-[11px] text-primary-200 truncate">
-              admin@belojardim.ifpe.edu.br
+            <p className="text-xs font-bold text-white truncate">Operador Logado</p>
+            {/* Email dinâmico renderizado aqui */}
+            <p className="text-[11px] text-primary-200 truncate" title={userEmail}>
+              {userEmail}
             </p>
           </div>
         </div>
@@ -137,7 +174,6 @@ export default function AdminLayout({
             </span>
           </div>
 
-          {/* Botão de Logout Corrigido */}
           <div className="flex items-center">
             <button
               onClick={handleLogout}

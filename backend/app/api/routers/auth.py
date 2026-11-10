@@ -98,7 +98,7 @@ async def auth_callback(
 
     # Frontend URL de redirecionamento (ex: http://localhost:3000/admin/leitor)
     # Por padrão, vamos jogar na raiz do admin no Next.js
-    frontend_url = "http://127.0.0.1:3000/admin"
+    frontend_url = "http://localhost:3000/admin"
 
     redirect_resp = RedirectResponse(url=frontend_url)
 
@@ -120,7 +120,7 @@ async def logout():
     Rota para deslogar o usuário.
     Deleta o cookie 'access_token' e redireciona para a página de login.
     """
-    frontend_url = "http://127.0.0.1:3000/"
+    frontend_url = "http://localhost:3000/"
     redirect_resp = RedirectResponse(url=frontend_url)
     redirect_resp.delete_cookie(
         key="access_token",
