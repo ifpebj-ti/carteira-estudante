@@ -25,7 +25,7 @@ export default function MobileLayout({
 
           {/* Botão de Logout Direto (Sem dropdown) */}
           <a
-            href="http://127.0.0.1:8000/api/v1/auth/logout"
+            href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/logout`}
             className="p-2 text-rose-600 hover:bg-rose-100 hover:text-rose-700 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
             title="Sair da conta"
           >

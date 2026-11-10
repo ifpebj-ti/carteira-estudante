@@ -1,8 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Save, AlertCircle, Loader2, ArrowLeft } from "lucide-react";
+import {
+  Save,
+  AlertCircle,
+  Loader2,
+  ArrowLeft,
+  CheckCircle,
+  X,
+} from "lucide-react";
 
 interface PessoaDetail {
   id: string | number;
@@ -32,7 +39,21 @@ export default function EditStudentPage() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [notificacao, setNotificacao] = useState<{
+    tipo: "sucesso" | "erro";
+    titulo: string;
+    mensagem: string;
+  } | null>(null);
   const [formData, setFormData] = useState<Partial<PessoaDetail>>({});
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -42,15 +63,16 @@ export default function EditStudentPage() {
 
       try {
         setCarregando(true);
-        const res = await fetch(
-          `http://localhost:8000/api/v1/pessoas/${matricula}`,
-          {
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-            },
-          }
-        );
+        const apiBaseUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${apiBaseUrl}/api/v1/pessoas/${matricula}`, {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
 
         if (!res.ok) {
           throw new Error("Aluno não encontrado ou erro no servidor.");
@@ -86,7 +108,6 @@ export default function EditStudentPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // --- NOVA FUNÇÃO PARA SALVAR NO BANCO (COM DEBUG) ---
   const handleSalvar = async () => {
     try {
       setSalvando(true);
@@ -168,6 +189,35 @@ export default function EditStudentPage() {
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 md:space-y-8">
+      {notificacao && (
+        <div
+          role={notificacao.tipo === "erro" ? "alert" : "status"}
+          className={`fixed top-5 right-5 z-50 w-[calc(100%-2.5rem)] max-w-md rounded-2xl border p-4 shadow-lg transition-all flex items-start gap-3 ${
+            notificacao.tipo === "sucesso"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+              : "bg-rose-50 border-rose-200 text-rose-900"
+          }`}
+        >
+          {notificacao.tipo === "sucesso" ? (
+            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          ) : (
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold">{notificacao.titulo}</p>
+            <p className="text-xs mt-0.5 opacity-90">{notificacao.mensagem}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotificacao(null)}
+            aria-label="Fechar notificação"
+            className="p-1 rounded-lg hover:bg-black/5 transition-colors cursor-pointer shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.push("/admin/alunos")}
@@ -264,7 +314,7 @@ export default function EditStudentPage() {
           <button
             type="button"
             onClick={handleSalvar}
-            disabled={salvando}
+            disabled={salvando || notificacao?.tipo === "sucesso"}
             className="w-full sm:w-auto px-6 py-2.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-xl transition-colors shadow-md shadow-primary-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
           >
             {salvando ? (
