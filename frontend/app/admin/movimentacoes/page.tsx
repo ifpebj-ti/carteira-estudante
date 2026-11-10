@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowUpRight, ArrowDownRight, Download, Filter, Loader2, AlertCircle } from "lucide-react";
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  Download,
+  Filter,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 
 // --- INTERFACES ---
 interface Movimentacao {
@@ -38,7 +45,7 @@ export default function MovimentacoesPage() {
     const fetchTodasMovimentacoes = async () => {
       try {
         setCarregando(true);
-        
+
         const resAlunos = await fetch("http://localhost:8000/api/v1/pessoas", {
           credentials: "include",
           headers: { Accept: "application/json" },
@@ -49,10 +56,11 @@ export default function MovimentacoesPage() {
           return;
         }
 
-        if (!resAlunos.ok) throw new Error(`Erro ao carregar alunos: ${resAlunos.status}`);
-        
+        if (!resAlunos.ok)
+          throw new Error(`Erro ao carregar alunos: ${resAlunos.status}`);
+
         const dadosAlunos = await resAlunos.json();
-        
+
         if (isMounted) {
           let listaBasica = [];
           if (Array.isArray(dadosAlunos)) listaBasica = dadosAlunos;
@@ -63,31 +71,47 @@ export default function MovimentacoesPage() {
 
           const promessasDetalhes = listaBasica.map(async (alunoBasico) => {
             try {
-              const resDetalhe = await fetch(`http://localhost:8000/api/v1/pessoas/${alunoBasico.matricula}`, {
-                credentials: "include",
-                headers: { Accept: "application/json" },
-              });
-              
+              const resDetalhe = await fetch(
+                `http://localhost:8000/api/v1/pessoas/${alunoBasico.matricula}`,
+                {
+                  credentials: "include",
+                  headers: { Accept: "application/json" },
+                }
+              );
+
               if (resDetalhe.ok) {
                 const alunoDetalhado = await resDetalhe.json();
-                
-                if (alunoDetalhado.movimentacoes && Array.isArray(alunoDetalhado.movimentacoes)) {
-                  const movsDoAluno = alunoDetalhado.movimentacoes.map((m: any) => ({
-                    ...m,
-                    pessoa: { nome: alunoDetalhado.nome, matricula: alunoDetalhado.matricula }
-                  }));
+
+                if (
+                  alunoDetalhado.movimentacoes &&
+                  Array.isArray(alunoDetalhado.movimentacoes)
+                ) {
+                  const movsDoAluno = alunoDetalhado.movimentacoes.map(
+                    (m: any) => ({
+                      ...m,
+                      pessoa: {
+                        nome: alunoDetalhado.nome,
+                        matricula: alunoDetalhado.matricula,
+                      },
+                    })
+                  );
                   todasMovimentacoes = [...todasMovimentacoes, ...movsDoAluno];
                 }
               }
             } catch (err) {
-              console.error(`Erro ao buscar detalhes do aluno ${alunoBasico.matricula}`, err);
+              console.error(
+                `Erro ao buscar detalhes do aluno ${alunoBasico.matricula}`,
+                err
+              );
             }
           });
 
           await Promise.all(promessasDetalhes);
 
           todasMovimentacoes.sort((a, b) => {
-            return new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime();
+            return (
+              new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime()
+            );
           });
 
           const hoje = new Date().toDateString();
@@ -129,15 +153,14 @@ export default function MovimentacoesPage() {
     };
   }, []);
 
-  // --- VOLTA PARA A PÁGINA 1 AO FILTRAR ---
-  useEffect(() => {
-    setPaginaAtual(1);
-  }, [filtroNome, filtroMatricula, filtroTipo]);
-
   // --- LÓGICA DE FILTRAGEM ---
   const movimentacoesFiltradas = movimentacoes.filter((mov) => {
-    const matchNome = mov.pessoa.nome.toLowerCase().includes(filtroNome.toLowerCase());
-    const matchMatricula = mov.pessoa.matricula.toLowerCase().includes(filtroMatricula.toLowerCase());
+    const matchNome = mov.pessoa.nome
+      .toLowerCase()
+      .includes(filtroNome.toLowerCase());
+    const matchMatricula = mov.pessoa.matricula
+      .toLowerCase()
+      .includes(filtroMatricula.toLowerCase());
     const matchTipo =
       filtroTipo === "Todos" ||
       (filtroTipo === "Entrada" && mov.tipo === "ENTRADA") ||
@@ -147,10 +170,15 @@ export default function MovimentacoesPage() {
   });
 
   // --- LÓGICA DE PAGINAÇÃO ---
-  const totalPaginas = Math.ceil(movimentacoesFiltradas.length / itensPorPagina);
+  const totalPaginas = Math.ceil(
+    movimentacoesFiltradas.length / itensPorPagina
+  );
   const indiceUltimoItem = paginaAtual * itensPorPagina;
   const indicePrimeiroItem = indiceUltimoItem - itensPorPagina;
-  const itensAtuais = movimentacoesFiltradas.slice(indicePrimeiroItem, indiceUltimoItem);
+  const itensAtuais = movimentacoesFiltradas.slice(
+    indicePrimeiroItem,
+    indiceUltimoItem
+  );
 
   const formatarData = (dataIso: string) => {
     try {
@@ -246,7 +274,10 @@ export default function MovimentacoesPage() {
             <input
               type="text"
               value={filtroNome}
-              onChange={(e) => setFiltroNome(e.target.value)}
+              onChange={(e) => {
+                setFiltroNome(e.target.value);
+                setPaginaAtual(1);
+              }}
               placeholder="Buscar por nome..."
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
             />
@@ -259,7 +290,10 @@ export default function MovimentacoesPage() {
             <input
               type="text"
               value={filtroMatricula}
-              onChange={(e) => setFiltroMatricula(e.target.value)}
+              onChange={(e) => {
+                setFiltroMatricula(e.target.value);
+                setPaginaAtual(1);
+              }}
               placeholder="Nº Matrícula"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
             />
@@ -270,9 +304,12 @@ export default function MovimentacoesPage() {
               <label className="block text-xs font-medium text-slate-500 mb-1.5">
                 Tipo de Movimento
               </label>
-              <select 
+              <select
                 value={filtroTipo}
-                onChange={(e) => setFiltroTipo(e.target.value)}
+                onChange={(e) => {
+                  setFiltroTipo(e.target.value);
+                  setPaginaAtual(1);
+                }}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
               >
                 <option value="Todos">Todos</option>
@@ -305,7 +342,9 @@ export default function MovimentacoesPage() {
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-rose-500">
                     <AlertCircle className="w-6 h-6 mx-auto mb-2" />
-                    <p className="font-semibold">Erro ao carregar movimentações</p>
+                    <p className="font-semibold">
+                      Erro ao carregar movimentações
+                    </p>
                     <p className="text-xs mt-1">{erro}</p>
                   </td>
                 </tr>
@@ -317,16 +356,20 @@ export default function MovimentacoesPage() {
                   </td>
                 </tr>
               ) : itensAtuais.length > 0 ? (
-                // Aqui iteramos sobre 'itensAtuais' em vez de 'movimentacoesFiltradas' inteira
                 itensAtuais.map((mov, index) => (
-                  <tr key={`${mov.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
+                  <tr
+                    key={`${mov.id}-${index}`}
+                    className="hover:bg-slate-50/50 transition-colors"
+                  >
                     <td className="py-4 px-6 font-medium text-slate-900 flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0 uppercase">
                         {mov.pessoa.nome.charAt(0)}
                       </div>
                       {mov.pessoa.nome}
                     </td>
-                    <td className="py-4 px-6 text-slate-500">{mov.pessoa.matricula}</td>
+                    <td className="py-4 px-6 text-slate-500">
+                      {mov.pessoa.matricula}
+                    </td>
                     <td className="py-4 px-6">
                       <span
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -343,7 +386,9 @@ export default function MovimentacoesPage() {
                         {mov.tipo === "ENTRADA" ? "Entrada" : "Saída"}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-slate-500">{formatarData(mov.data_hora)}</td>
+                    <td className="py-4 px-6 text-slate-500">
+                      {formatarData(mov.data_hora)}
+                    </td>
                     <td className="py-4 px-6 text-slate-500 font-mono text-xs">
                       {formatarHora(mov.data_hora)}
                     </td>
@@ -363,15 +408,21 @@ export default function MovimentacoesPage() {
         {/* Rodapé de Paginação Funcional */}
         <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs md:text-sm text-slate-500">
           <span>
-            Mostrando <span className="font-medium text-slate-700">
-              {movimentacoesFiltradas.length > 0 ? indicePrimeiroItem + 1 : 0} - {Math.min(indiceUltimoItem, movimentacoesFiltradas.length)}
-            </span> de{" "}
-            <span className="font-medium text-slate-700">{movimentacoesFiltradas.length}</span> resultados filtrados
+            Mostrando{" "}
+            <span className="font-medium text-slate-700">
+              {movimentacoesFiltradas.length > 0 ? indicePrimeiroItem + 1 : 0} -{" "}
+              {Math.min(indiceUltimoItem, movimentacoesFiltradas.length)}
+            </span>{" "}
+            de{" "}
+            <span className="font-medium text-slate-700">
+              {movimentacoesFiltradas.length}
+            </span>{" "}
+            resultados filtrados
           </span>
-          
+
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setPaginaAtual(prev => Math.max(prev - 1, 1))}
+            <button
+              onClick={() => setPaginaAtual((prev) => Math.max(prev - 1, 1))}
               disabled={paginaAtual === 1 || carregando}
               className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium transition-colors"
             >
@@ -380,9 +431,13 @@ export default function MovimentacoesPage() {
             <span className="text-xs font-medium text-slate-600">
               Página {paginaAtual} de {totalPaginas || 1}
             </span>
-            <button 
-              onClick={() => setPaginaAtual(prev => Math.min(prev + 1, totalPaginas))}
-              disabled={paginaAtual === totalPaginas || totalPaginas === 0 || carregando}
+            <button
+              onClick={() =>
+                setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas))
+              }
+              disabled={
+                paginaAtual === totalPaginas || totalPaginas === 0 || carregando
+              }
               className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium transition-colors"
             >
               Próximo

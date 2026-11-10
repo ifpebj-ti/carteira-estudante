@@ -3,14 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { 
-  Search, 
-  Edit, 
-  Users, 
-  CheckCircle, 
-  XCircle, 
-  Loader2, 
-  AlertCircle 
+import {
+  Search,
+  Edit,
+  Users,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 
 interface Pessoa {
@@ -52,7 +52,9 @@ export default function ListaAlunosPage() {
         const data = await res.json();
         if (isMounted) {
           // Filtra apenas ALUNOS caso o backend retorne professores e servidores misturados
-          const apenasAlunos = data.filter((p: Pessoa) => p.tipo_vinculo === "ALUNO");
+          const apenasAlunos = data.filter(
+            (p: Pessoa) => p.tipo_vinculo === "ALUNO"
+          );
           setAlunos(apenasAlunos);
           setErro(null);
         }
@@ -84,7 +86,9 @@ export default function ListaAlunosPage() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-slate-500">
         <Loader2 className="w-8 h-8 text-primary-600 animate-spin" />
-        <p className="font-medium text-sm">Carregando dados dos alunos do banco...</p>
+        <p className="font-medium text-sm">
+          Carregando dados dos alunos do banco...
+        </p>
       </div>
     );
   }
@@ -95,7 +99,9 @@ export default function ListaAlunosPage() {
         <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 flex flex-col items-center text-center gap-4">
           <AlertCircle className="w-10 h-10 text-rose-500" />
           <div>
-            <h3 className="text-lg font-bold text-slate-900 mb-1">Erro de Conexão</h3>
+            <h3 className="text-lg font-bold text-slate-900 mb-1">
+              Erro de Conexão
+            </h3>
             <p className="text-sm text-slate-600">{erro}</p>
           </div>
         </div>
@@ -108,7 +114,9 @@ export default function ListaAlunosPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Gestão de Alunos</h2>
+          <h2 className="text-2xl font-bold text-slate-900">
+            Gestão de Alunos
+          </h2>
           <p className="text-sm text-slate-500 mt-1">
             Gira os estudantes, matrículas e credenciais de acesso.
           </p>
@@ -122,8 +130,12 @@ export default function ListaAlunosPage() {
             <Users className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Total de Alunos</p>
-            <h3 className="text-2xl font-bold text-slate-900">{alunos.length}</h3>
+            <p className="text-sm font-medium text-slate-500">
+              Total de Alunos
+            </p>
+            <h3 className="text-2xl font-bold text-slate-900">
+              {alunos.length}
+            </h3>
           </div>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -131,9 +143,17 @@ export default function ListaAlunosPage() {
             <CheckCircle className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Matrículas Ativas</p>
+            <p className="text-sm font-medium text-slate-500">
+              Matrículas Ativas
+            </p>
             <h3 className="text-2xl font-bold text-slate-900">
-              {alunos.filter((a) => a.status_matricula !== "Evadido" && a.status_matricula !== "Trancado").length}
+              {
+                alunos.filter(
+                  (a) =>
+                    a.status_matricula !== "Evadido" &&
+                    a.status_matricula !== "Trancado"
+                ).length
+              }
             </h3>
           </div>
         </div>
@@ -142,9 +162,17 @@ export default function ListaAlunosPage() {
             <XCircle className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Evadidos/Trancados</p>
+            <p className="text-sm font-medium text-slate-500">
+              Evadidos/Trancados
+            </p>
             <h3 className="text-2xl font-bold text-slate-900">
-              {alunos.filter((a) => a.status_matricula === "Evadido" || a.status_matricula === "Trancado").length}
+              {
+                alunos.filter(
+                  (a) =>
+                    a.status_matricula === "Evadido" ||
+                    a.status_matricula === "Trancado"
+                ).length
+              }
             </h3>
           </div>
         </div>
@@ -178,12 +206,18 @@ export default function ListaAlunosPage() {
             <tbody className="divide-y divide-slate-200">
               {alunosFiltrados.length > 0 ? (
                 alunosFiltrados.map((aluno) => (
-                  <tr key={aluno.id} className="hover:bg-slate-50/50 transition-colors">
+                  <tr
+                    key={aluno.id}
+                    className="hover:bg-slate-50/50 transition-colors"
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="relative w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-200">
                           <Image
-                            src={aluno.foto_url || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100"}
+                            src={
+                              aluno.foto_url ||
+                              "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100"
+                            }
                             alt={aluno.nome}
                             fill
                             sizes="40px"
@@ -191,34 +225,42 @@ export default function ListaAlunosPage() {
                           />
                         </div>
                         <div className="flex flex-col">
-                          <Link 
+                          <Link
                             href={`/admin/aluno/${aluno.matricula}`}
                             className="font-semibold text-slate-900 hover:text-primary-600 hover:underline transition-colors"
                           >
                             {aluno.nome}
                           </Link>
-                          <p className="text-xs text-slate-500">{aluno.email}</p>
+                          <p className="text-xs text-slate-500">
+                            {aluno.email}
+                          </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="font-medium text-slate-700">{aluno.matricula}</p>
+                      <p className="font-medium text-slate-700">
+                        {aluno.matricula}
+                      </p>
                       <p className="text-xs text-slate-500">{aluno.cpf}</p>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-slate-700 font-medium">{aluno.curso || "Não informado"}</p>
+                      <p className="text-slate-700 font-medium">
+                        {aluno.curso || "Não informado"}
+                      </p>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        aluno.status_matricula === 'Ativo' 
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                          : 'bg-amber-50 text-amber-700 border border-amber-200'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          aluno.status_matricula === "Ativo"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-amber-50 text-amber-700 border border-amber-200"
+                        }`}
+                      >
                         {aluno.status_matricula || "Ativo"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Link 
+                      <Link
                         href={`/admin/editar/${aluno.matricula}`}
                         className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
                         title="Editar Aluno"
@@ -230,7 +272,10 @@ export default function ListaAlunosPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <td
+                    colSpan={5}
+                    className="px-6 py-12 text-center text-slate-500"
+                  >
                     Nenhum aluno encontrado.
                   </td>
                 </tr>

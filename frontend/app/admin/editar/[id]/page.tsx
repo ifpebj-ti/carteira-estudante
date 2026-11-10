@@ -1,20 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  Camera,
-  Trash2,
-  Save,
-  AlertCircle,
-  ShieldCheck,
-  Smartphone,
-  CheckCircle,
-  Image as ImageIcon,
-  Loader2,
-  ArrowLeft,
-} from "lucide-react";
+import { Save, AlertCircle, Loader2, ArrowLeft } from "lucide-react";
 
 interface PessoaDetail {
   id: string | number;
@@ -31,7 +19,7 @@ interface PessoaDetail {
   foto_url?: string;
   status: boolean;
   qr_code_hash?: string;
-  created_at?: string;       // <-- Adicionado para o TypeScript não reclamar
+  created_at?: string; // <-- Adicionado para o TypeScript não reclamar
   movimentacoes?: any[];
 }
 
@@ -39,7 +27,7 @@ export default function EditStudentPage() {
   const params = useParams();
   const router = useRouter();
   // O Next.js pega o [id] da pasta e coloca no params
-  const matricula = params.id as string; 
+  const matricula = params.id as string;
 
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -91,7 +79,9 @@ export default function EditStudentPage() {
     };
   }, [matricula]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -100,10 +90,10 @@ export default function EditStudentPage() {
   const handleSalvar = async () => {
     try {
       setSalvando(true);
-      
+
       // Criamos uma cópia dos dados para limpar campos que o backend costuma rejeitar
       const dadosParaEnviar = { ...formData };
-      
+
       // Removemos campos que geralmente são apenas de leitura (ajuste conforme o seu backend)
       delete dadosParaEnviar.id;
       delete dadosParaEnviar.matricula;
@@ -111,33 +101,39 @@ export default function EditStudentPage() {
       delete dadosParaEnviar.created_at;
       delete dadosParaEnviar.movimentacoes;
 
-      const res = await fetch(`http://localhost:8000/api/v1/pessoas/${matricula}`, {
-        method: "PATCH", // Se o erro disser "Method Not Allowed", mude isto para "PATCH"
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify(dadosParaEnviar), 
-      });
+      const res = await fetch(
+        `http://localhost:8000/api/v1/pessoas/${matricula}`,
+        {
+          method: "PATCH", // Se o erro disser "Method Not Allowed", mude isto para "PATCH"
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(dadosParaEnviar),
+        }
+      );
 
       if (!res.ok) {
         // Tenta capturar a mensagem de erro exata que o FastAPI enviou
-        const erroBackend = await res.json().catch(() => ({ detail: `Status ${res.status}` }));
+        const erroBackend = await res
+          .json()
+          .catch(() => ({ detail: `Status ${res.status}` }));
         throw new Error(
-          typeof erroBackend.detail === 'string' 
-            ? erroBackend.detail 
+          typeof erroBackend.detail === "string"
+            ? erroBackend.detail
             : JSON.stringify(erroBackend.detail)
         );
       }
 
       alert("✨ Dados do aluno atualizados com sucesso no banco de dados! XD");
-      router.push("/admin/alunos"); 
-
+      router.push("/admin/alunos");
     } catch (error) {
       console.error("Erro ao salvar:", error);
       // Agora o alerta mostra a mensagem de erro real do backend!
-      alert(`O backend recusou a alteração:\n${error instanceof Error ? error.message : "Erro desconhecido"}`);
+      alert(
+        `O backend recusou a alteração:\n${error instanceof Error ? error.message : "Erro desconhecido"}`
+      );
     } finally {
       setSalvando(false);
     }
@@ -147,7 +143,9 @@ export default function EditStudentPage() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-slate-500">
         <Loader2 className="w-8 h-8 text-primary-600 animate-spin" />
-        <p className="font-medium text-sm">Carregando informações do aluno...</p>
+        <p className="font-medium text-sm">
+          Carregando informações do aluno...
+        </p>
       </div>
     );
   }
@@ -191,24 +189,63 @@ export default function EditStudentPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 md:p-8 flex flex-col">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 flex-1">
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase">Nome Completo</label>
-            <input type="text" name="nome" value={formData.nome || ""} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm" />
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase">
+              Nome Completo
+            </label>
+            <input
+              type="text"
+              name="nome"
+              value={formData.nome || ""}
+              onChange={handleChange}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm"
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase">Matrícula</label>
-            <input type="text" value={formData.matricula || ""} disabled className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-400 cursor-not-allowed" />
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase">
+              Matrícula
+            </label>
+            <input
+              type="text"
+              value={formData.matricula || ""}
+              disabled
+              className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-400 cursor-not-allowed"
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase">E-mail</label>
-            <input type="email" name="email" value={formData.email || ""} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm" />
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase">
+              E-mail
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email || ""}
+              onChange={handleChange}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm"
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase">Curso</label>
-            <input type="text" name="curso" value={formData.curso || ""} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm" />
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase">
+              Curso
+            </label>
+            <input
+              type="text"
+              name="curso"
+              value={formData.curso || ""}
+              onChange={handleChange}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm"
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase">CPF</label>
-            <input type="text" name="cpf" value={formData.cpf || ""} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm" />
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase">
+              CPF
+            </label>
+            <input
+              type="text"
+              name="cpf"
+              value={formData.cpf || ""}
+              onChange={handleChange}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm"
+            />
           </div>
         </div>
 
@@ -230,7 +267,11 @@ export default function EditStudentPage() {
             disabled={salvando}
             className="w-full sm:w-auto px-6 py-2.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-xl transition-colors shadow-md shadow-primary-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
           >
-            {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {salvando ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
             {salvando ? "Salvando..." : "Salvar Alterações"}
           </button>
         </div>

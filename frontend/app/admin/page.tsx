@@ -38,7 +38,7 @@ export default function DashboardPage() {
     const fetchMovimentacoesViaAlunos = async () => {
       try {
         setCarregando(true);
-        
+
         // 1. Pega a lista básica de todos os alunos (sem movimentações)
         const resAlunos = await fetch("http://localhost:8000/api/v1/pessoas", {
           credentials: "include",
@@ -50,10 +50,11 @@ export default function DashboardPage() {
           return;
         }
 
-        if (!resAlunos.ok) throw new Error(`Erro ao carregar alunos: ${resAlunos.status}`);
-        
+        if (!resAlunos.ok)
+          throw new Error(`Erro ao carregar alunos: ${resAlunos.status}`);
+
         const dadosAlunos = await resAlunos.json();
-        
+
         if (isMounted) {
           let listaBasica = [];
           if (Array.isArray(dadosAlunos)) listaBasica = dadosAlunos;
@@ -65,24 +66,35 @@ export default function DashboardPage() {
           // 2. Faz uma requisição detalhada para CADA aluno para pegar o histórico
           const promessasDetalhes = listaBasica.map(async (alunoBasico) => {
             try {
-              const resDetalhe = await fetch(`http://localhost:8000/api/v1/pessoas/${alunoBasico.matricula}`, {
-                credentials: "include",
-                headers: { Accept: "application/json" },
-              });
-              
+              const resDetalhe = await fetch(
+                `http://localhost:8000/api/v1/pessoas/${alunoBasico.matricula}`,
+                {
+                  credentials: "include",
+                  headers: { Accept: "application/json" },
+                }
+              );
+
               if (resDetalhe.ok) {
                 const alunoDetalhado = await resDetalhe.json();
-                
-                if (alunoDetalhado.movimentacoes && Array.isArray(alunoDetalhado.movimentacoes)) {
-                  const movsDoAluno = alunoDetalhado.movimentacoes.map((m: any) => ({
-                    ...m,
-                    pessoa: { nome: alunoDetalhado.nome }
-                  }));
+
+                if (
+                  alunoDetalhado.movimentacoes &&
+                  Array.isArray(alunoDetalhado.movimentacoes)
+                ) {
+                  const movsDoAluno = alunoDetalhado.movimentacoes.map(
+                    (m: any) => ({
+                      ...m,
+                      pessoa: { nome: alunoDetalhado.nome },
+                    })
+                  );
                   todasMovimentacoes = [...todasMovimentacoes, ...movsDoAluno];
                 }
               }
             } catch (err) {
-              console.error(`Erro ao buscar detalhes do aluno ${alunoBasico.matricula}`, err);
+              console.error(
+                `Erro ao buscar detalhes do aluno ${alunoBasico.matricula}`,
+                err
+              );
             }
           });
 
@@ -91,12 +103,14 @@ export default function DashboardPage() {
 
           // 3. Ordena da mais recente para a mais antiga e pega apenas 5
           todasMovimentacoes.sort((a, b) => {
-            return new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime();
+            return (
+              new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime()
+            );
           });
 
           // --- CÁLCULO DAS MÉTRICAS REAIS ---
           const totalAlunos = listaBasica.length;
-          
+
           const hoje = new Date().toDateString();
           let entradas = 0;
           let saidas = 0;
@@ -273,7 +287,9 @@ export default function DashboardPage() {
                 <tr>
                   <td colSpan={4} className="py-8 text-center text-rose-500">
                     <AlertCircle className="w-6 h-6 mx-auto mb-2" />
-                    <p className="font-semibold">Erro ao carregar movimentações</p>
+                    <p className="font-semibold">
+                      Erro ao carregar movimentações
+                    </p>
                     <p className="text-xs mt-1">{erro}</p>
                   </td>
                 </tr>
@@ -286,9 +302,13 @@ export default function DashboardPage() {
                 </tr>
               ) : movimentacoes.length > 0 ? (
                 movimentacoes.map((mov) => {
-                  const nomeExibicao = mov.pessoa?.nome || mov.pessoa_nome || "Desconhecido";
+                  const nomeExibicao =
+                    mov.pessoa?.nome || mov.pessoa_nome || "Desconhecido";
                   return (
-                    <tr key={mov.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr
+                      key={mov.id}
+                      className="hover:bg-slate-50/50 transition-colors"
+                    >
                       <td className="py-3.5 px-6 font-medium text-slate-900 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0 uppercase">
                           {nomeExibicao.charAt(0)}
@@ -306,7 +326,9 @@ export default function DashboardPage() {
                           {mov.tipo === "ENTRADA" ? "Entrada" : "Saída"}
                         </span>
                       </td>
-                      <td className="py-3.5 px-6 text-slate-600">{formatarData(mov.data_hora)}</td>
+                      <td className="py-3.5 px-6 text-slate-600">
+                        {formatarData(mov.data_hora)}
+                      </td>
                       <td className="py-3.5 px-6 text-slate-500 font-mono text-xs">
                         {formatarHora(mov.data_hora)}
                       </td>
