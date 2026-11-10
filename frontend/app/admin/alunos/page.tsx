@@ -30,7 +30,11 @@ export default function ListaAlunosPage() {
   const [alunos, setAlunos] = useState<Pessoa[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+
+  // --- ESTADO DA BUSCA E DA PAGINAÇÃO ---
   const [busca, setBusca] = useState("");
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const itensPorPagina = 10;
 
   useEffect(() => {
     let isMounted = true;
@@ -80,10 +84,20 @@ export default function ListaAlunosPage() {
     };
   }, []);
 
+  // --- LÓGICA DE FILTRAGEM ---
   const alunosFiltrados = alunos.filter(
     (aluno) =>
       aluno.nome.toLowerCase().includes(busca.toLowerCase()) ||
       aluno.matricula.includes(busca)
+  );
+
+  // --- LÓGICA DE PAGINAÇÃO ---
+  const totalPaginas = Math.ceil(alunosFiltrados.length / itensPorPagina);
+  const indiceUltimoItem = paginaAtual * itensPorPagina;
+  const indicePrimeiroItem = indiceUltimoItem - itensPorPagina;
+  const alunosPaginados = alunosFiltrados.slice(
+    indicePrimeiroItem,
+    indiceUltimoItem
   );
 
   if (carregando) {
@@ -189,13 +203,16 @@ export default function ListaAlunosPage() {
           type="text"
           placeholder="Pesquisar por nome ou matrícula..."
           value={busca}
-          onChange={(e) => setBusca(e.target.value)}
+          onChange={(e) => {
+            setBusca(e.target.value);
+            setPaginaAtual(1); // Retorna para a página 1 ao pesquisar
+          }}
           className="w-full bg-transparent border-none focus:outline-none text-sm font-medium text-slate-700 placeholder:text-slate-400"
         />
       </div>
 
-      {/* Tabela de Alunos */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* Tabela de Alunos e Rodapé de Paginação */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
@@ -208,8 +225,8 @@ export default function ListaAlunosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {alunosFiltrados.length > 0 ? (
-                alunosFiltrados.map((aluno) => (
+              {alunosPaginados.length > 0 ? (
+                alunosPaginados.map((aluno) => (
                   <tr
                     key={aluno.id}
                     className="hover:bg-slate-50/50 transition-colors"
@@ -286,6 +303,46 @@ export default function ListaAlunosPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Rodapé de Paginação Funcional */}
+        <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs md:text-sm text-slate-500">
+          <span>
+            Mostrando{" "}
+            <span className="font-medium text-slate-700">
+              {alunosFiltrados.length > 0 ? indicePrimeiroItem + 1 : 0} -{" "}
+              {Math.min(indiceUltimoItem, alunosFiltrados.length)}
+            </span>{" "}
+            de{" "}
+            <span className="font-medium text-slate-700">
+              {alunosFiltrados.length}
+            </span>{" "}
+            resultados filtrados
+          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPaginaAtual((prev) => Math.max(prev - 1, 1))}
+              disabled={paginaAtual === 1 || carregando}
+              className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium transition-colors"
+            >
+              Anterior
+            </button>
+            <span className="text-xs font-medium text-slate-600">
+              Página {paginaAtual} de {totalPaginas || 1}
+            </span>
+            <button
+              onClick={() =>
+                setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas))
+              }
+              disabled={
+                paginaAtual === totalPaginas || totalPaginas === 0 || carregando
+              }
+              className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium transition-colors"
+            >
+              Próximo
+            </button>
+          </div>
         </div>
       </div>
     </div>
