@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Save,
@@ -45,15 +45,18 @@ export default function EditStudentPage() {
     mensagem: string;
   } | null>(null);
   const [formData, setFormData] = useState<Partial<PessoaDetail>>({});
-  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (notificacao?.tipo !== "sucesso") return;
+
+    const timeoutId = setTimeout(() => {
+      router.push("/admin/alunos");
+    }, 1200);
+
     return () => {
-      if (redirectTimeoutRef.current) {
-        clearTimeout(redirectTimeoutRef.current);
-      }
+      clearTimeout(timeoutId);
     };
-  }, []);
+  }, [notificacao, router]);
 
   useEffect(() => {
     let isMounted = true;
@@ -111,6 +114,7 @@ export default function EditStudentPage() {
   const handleSalvar = async () => {
     try {
       setSalvando(true);
+      setNotificacao(null);
 
       // Criamos uma cópia dos dados para limpar campos que o backend costuma rejeitar
       const dadosParaEnviar = { ...formData };
@@ -122,39 +126,55 @@ export default function EditStudentPage() {
       delete dadosParaEnviar.created_at;
       delete dadosParaEnviar.movimentacoes;
 
-      const res = await fetch(
-        `http://localhost:8000/api/v1/pessoas/${matricula}`,
-        {
-          method: "PATCH", // Se o erro disser "Method Not Allowed", mude isto para "PATCH"
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(dadosParaEnviar),
-        }
-      );
+      const apiBaseUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${apiBaseUrl}/api/v1/pessoas/${matricula}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(dadosParaEnviar),
+      });
 
       if (!res.ok) {
         // Tenta capturar a mensagem de erro exata que o FastAPI enviou
         const erroBackend = await res
           .json()
-          .catch(() => ({ detail: `Status ${res.status}` }));
-        throw new Error(
-          typeof erroBackend.detail === "string"
-            ? erroBackend.detail
-            : JSON.stringify(erroBackend.detail)
-        );
+          .catch(() => ({ detail: `Erro inesperado (${res.status}).` }));
+
+        let mensagemErro = "Não foi possível salvar as alterações.";
+        if (typeof erroBackend.detail === "string") {
+          mensagemErro = erroBackend.detail;
+        } else if (Array.isArray(erroBackend.detail)) {
+          mensagemErro = erroBackend.detail
+            .map((item: { msg?: string }) =>
+              (item.msg || "Valor inválido.").replace(/^Value error,\s*/i, "")
+            )
+            .join(" ");
+        }
+
+        throw new Error(mensagemErro);
       }
 
-      alert("✨ Dados do aluno atualizados com sucesso no banco de dados! XD");
-      router.push("/admin/alunos");
+      setNotificacao({
+        tipo: "sucesso",
+        titulo: "Cadastro atualizado",
+        mensagem: "As alterações do discente foram salvas com sucesso.",
+      });
     } catch (error) {
       console.error("Erro ao salvar:", error);
-      // Agora o alerta mostra a mensagem de erro real do backend!
-      alert(
-        `O backend recusou a alteração:\n${error instanceof Error ? error.message : "Erro desconhecido"}`
-      );
+      setNotificacao({
+        tipo: "erro",
+        titulo: "Não foi possível salvar",
+        mensagem:
+          error instanceof Error
+            ? error.message
+            : "Ocorreu um erro inesperado ao comunicar com o servidor.",
+      });
     } finally {
       setSalvando(false);
     }
@@ -319,10 +339,16 @@ export default function EditStudentPage() {
           >
             {salvando ? (
               <Loader2 className="w-4 h-4 animate-spin" />
+            ) : notificacao?.tipo === "sucesso" ? (
+              <CheckCircle className="w-4 h-4" />
             ) : (
               <Save className="w-4 h-4" />
             )}
-            {salvando ? "Salvando..." : "Salvar Alterações"}
+            {salvando
+              ? "Salvando..."
+              : notificacao?.tipo === "sucesso"
+                ? "Salvo!"
+                : "Salvar Alterações"}
           </button>
         </div>
       </div>
