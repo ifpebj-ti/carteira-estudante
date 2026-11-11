@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogOut } from "lucide-react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function AdminLayout({
   children,
 }: {
@@ -35,11 +37,12 @@ export default function AdminLayout({
 
     const fetchUserProfile = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/v1/auth/me", {
-          // Altere a rota se necessário
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+          credentials: "include",
           headers: {
             Accept: "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         });
 
@@ -48,10 +51,10 @@ export default function AdminLayout({
           if (isMounted && data.email) {
             // O backend precisa retornar um campo "email" na rota /auth/me
             setUserEmail(data.email);
-          } else {
+          } else if (isMounted) {
             setUserEmail("Usuário Desconhecido");
           }
-        } else {
+        } else if (isMounted) {
           setUserEmail("Sessão Inválida");
         }
       } catch {
@@ -66,9 +69,12 @@ export default function AdminLayout({
     };
   }, []);
 
+  const logoutUrl = `${API_BASE_URL}/api/v1/auth/logout`;
+
+  // --- NOVA FUNÇÃO DE LOGOUT (SEM NEXT-AUTH) ---
   const handleLogout = () => {
+    // Limpa o token do FastAPI guardado no navegador antes de seguir o link para o backend
     localStorage.removeItem("token");
-    window.location.href = "http://localhost:8000/api/v1/auth/logout";
   };
 
   return (
@@ -183,14 +189,14 @@ export default function AdminLayout({
           </div>
 
           <div className="flex items-center">
-            <button
-              type="button"
+            <a
+              href={logoutUrl}
               onClick={handleLogout}
               className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors border border-transparent hover:border-rose-200 cursor-pointer"
             >
               <span className="hidden sm:inline">Sair da conta</span>
               <LogOut className="w-5 h-5" />
-            </button>
+            </a>
           </div>
         </header>
 
