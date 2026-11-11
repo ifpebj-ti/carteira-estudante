@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogOut } from "lucide-react";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function AdminLayout({
   children,
@@ -11,15 +13,15 @@ export default function AdminLayout({
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Pegamos a URL atual para saber qual menu deixar "aceso"
+  // --- NOVO ESTADO PARA O EMAIL DO USUÁRIO LOGADO ---
+  const [userEmail, setUserEmail] = useState<string>("Carregando...");
+
   const pathname = usePathname();
   const isActive = (path: string) => pathname?.includes(path);
 
-  // Como o dashboard é a página raiz (/admin), precisamos dessa verificação extra
   const isDashboard =
     pathname === "/admin" || pathname === "/admin/" || isActive("dashboard");
 
-  // Define o título do cabeçalho com base na URL
   const getPageTitle = () => {
     if (isDashboard) return "Dashboard";
     if (isActive("alunos")) return "Gestão de Alunos";
@@ -29,9 +31,54 @@ export default function AdminLayout({
     return "Administração";
   };
 
+  // --- BUSCAR DADOS DO USUÁRIO NA API (QUANDO O LAYOUT CARREGA) ---
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchUserProfile = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.email) {
+            // O backend precisa retornar um campo "email" na rota /auth/me
+            setUserEmail(data.email);
+          } else if (isMounted) {
+            setUserEmail("Usuário Desconhecido");
+          }
+        } else if (isMounted) {
+          setUserEmail("Sessão Inválida");
+        }
+      } catch {
+        if (isMounted) setUserEmail("Erro de conexão");
+      }
+    };
+
+    fetchUserProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const logoutUrl = `${API_BASE_URL}/api/v1/auth/logout`;
+
+  // --- NOVA FUNÇÃO DE LOGOUT (SEM NEXT-AUTH) ---
+  const handleLogout = () => {
+    // Limpa o token do FastAPI guardado no navegador antes de seguir o link para o backend
+    localStorage.removeItem("token");
+  };
+
   return (
     <div className="h-screen w-full bg-slate-50 flex overflow-hidden text-slate-900">
-      {/* Overlay mobile */}
       {isMobileMenuOpen && (
         <div
           className="fixed inset-0 bg-slate-900/50 z-40 md:hidden transition-opacity"
@@ -96,14 +143,25 @@ export default function AdminLayout({
             </a>
           </nav>
         </div>
+
+        {/* --- PERFIL DO USUÁRIO ATUALIZADO --- */}
         <div className="p-4 border-t border-white/10 flex items-center gap-3 mb-4 md:mb-0">
-          <div className="w-9 h-9 rounded-full bg-white/10 text-white font-bold flex items-center justify-center text-sm border border-white/20 shrink-0">
-            AG
+          <div className="w-9 h-9 rounded-full bg-white/10 text-white font-bold flex items-center justify-center text-sm border border-white/20 shrink-0 uppercase">
+            {/* Pega a primeira letra do email ou 'A' como fallback */}
+            {userEmail !== "Carregando..." && userEmail !== "Erro de conexão"
+              ? userEmail.charAt(0)
+              : "A"}
           </div>
           <div className="overflow-hidden">
-            <p className="text-xs font-bold text-white truncate">Adm. Geral</p>
-            <p className="text-[11px] text-primary-200 truncate">
-              admin@belojardim.ifpe.edu.br
+            <p className="text-xs font-bold text-white truncate">
+              Operador Logado
+            </p>
+            {/* Email dinâmico renderizado aqui */}
+            <p
+              className="text-[11px] text-primary-200 truncate"
+              title={userEmail}
+            >
+              {userEmail}
             </p>
           </div>
         </div>
@@ -130,11 +188,11 @@ export default function AdminLayout({
             </span>
           </div>
 
-          {/* Botão de Logout Direto */}
           <div className="flex items-center">
             <a
-              href="http://127.0.0.1:8000/api/v1/auth/logout"
-              className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors border border-transparent hover:border-rose-200"
+              href={logoutUrl}
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors border border-transparent hover:border-rose-200 cursor-pointer"
             >
               <span className="hidden sm:inline">Sair da conta</span>
               <LogOut className="w-5 h-5" />
@@ -142,7 +200,6 @@ export default function AdminLayout({
           </div>
         </header>
 
-        {/* O Next.js injeta a sua página exata aqui dentro automaticamente! */}
         <div className="flex-1 overflow-y-auto">{children}</div>
       </main>
     </div>
