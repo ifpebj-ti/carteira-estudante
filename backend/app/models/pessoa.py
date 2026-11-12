@@ -23,6 +23,7 @@ class Pessoa(Base):
 
     # Optional fields from existing Pessoa model to keep the app working
     email = Column(String, unique=True, index=True, nullable=True)
+    senha_hash = Column(String, nullable=True)
     foto_url = Column(String, nullable=True)
     qr_code_hash = Column(String, unique=True, index=True, nullable=True)
     status = Column(Boolean, default=True)  # Flag rápido de ativo/inativo
