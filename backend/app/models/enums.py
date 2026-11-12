@@ -19,12 +19,10 @@ class ModalidadeEnsino(str, Enum):
 
 class LocalAcesso(str, Enum):
     PORTARIA = "PORTARIA"
-    REFEITORIO = "REFEITORIO"
 
 
 class PerfilOperador(str, Enum):
     PORTEIRO = "PORTEIRO"
-    INSPETOR_REFEITORIO = "INSPETOR_REFEITORIO"
     ADMIN = "ADMIN"
 
 

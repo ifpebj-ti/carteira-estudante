@@ -87,11 +87,6 @@ def seed():
                 "login": "porteiro.marcos@ifpe.edu.br",
                 "perfil": PerfilOperador.PORTEIRO,
             },
-            {
-                "nome": "Roberto Antunes (Refeitório)",
-                "login": "inspetor.roberto@ifpe.edu.br",
-                "perfil": PerfilOperador.INSPETOR_REFEITORIO,
-            },
         ]
 
         operadores = {}
@@ -347,7 +342,6 @@ def seed():
 
         # 3. Gerar Movimentações Realistas
         porteiro = operadores[PerfilOperador.PORTEIRO]
-        inspetor = operadores[PerfilOperador.INSPETOR_REFEITORIO]
 
         # Limpar movimentações de teste anteriores se houver poucas
         total_movs = db.query(Movimentacao).count()
@@ -382,17 +376,6 @@ def seed():
                     ),
                 ),
                 (
-                    "20241ADBJ0001",
-                    inspetor.id,
-                    SentidoMovimentacao.ENTRADA,
-                    LocalAcesso.REFEITORIO,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(8, 0),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
                     "20241APBJ0001",
                     porteiro.id,
                     SentidoMovimentacao.ENTRADA,
@@ -411,28 +394,6 @@ def seed():
                     datetime.datetime.combine(
                         today,
                         datetime.time(9, 10),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241AGBJ0001",
-                    inspetor.id,
-                    SentidoMovimentacao.ENTRADA,
-                    LocalAcesso.REFEITORIO,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(11, 45),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241ADBJ0001",
-                    inspetor.id,
-                    SentidoMovimentacao.ENTRADA,
-                    LocalAcesso.REFEITORIO,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(12, 0),
                         tzinfo=datetime.timezone.utc,
                     ),
                 ),
