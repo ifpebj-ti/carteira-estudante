@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
+from app.core.security import get_password_hash
 from app.models.enums import (
     LocalAcesso,
     ModalidadeEnsino,
@@ -44,7 +45,7 @@ CURSO_SIGLAS = {
     "Informática para Internet": "IN",
     "Agroindústria": "AG",
     "Agropecuária": "AP",
-    "Enfermagem": "EN",
+    "Técnico em Enfermagem": "EN",
     "Análise e Desenvolvimento de Sistemas": "AD",
     "Licenciatura em Música": "MU",
     "Especialização Técnica em Enfermagem do Trabalho": "ET",
@@ -64,7 +65,7 @@ def seed():
     db: Session = SessionLocal()
 
     try:
-        # 1. Criar ou Obter Operadores do Sistema
+        # 1. Operadores do Sistema (Equipe + Contas Oficiais de Avaliação)
         operadores_data = [
             {
                 "nome": "Júlio César (Administrador)",
@@ -82,17 +83,18 @@ def seed():
                 "perfil": PerfilOperador.ADMIN,
             },
             {
-                "nome": "Marcos Vinícius (Portaria)",
-                "login": "porteiro.marcos@ifpe.edu.br",
-                "perfil": PerfilOperador.PORTEIRO,
+                "nome": "Professor Avaliador (Admin)",
+                "login": "admin_teste",
+                "perfil": PerfilOperador.ADMIN,
             },
             {
-                "nome": "Roberto Antunes (Refeitório)",
-                "login": "inspetor.roberto@ifpe.edu.br",
-                "perfil": PerfilOperador.INSPETOR_REFEITORIO,
+                "nome": "Professor Avaliador (Portaria)",
+                "login": "porteiro_teste",
+                "perfil": PerfilOperador.PORTEIRO,
             },
         ]
 
+        default_password_hash = get_password_hash("Mudar@123")
         operadores = {}
         for op_data in operadores_data:
             op = (
@@ -104,20 +106,93 @@ def seed():
                 op = UsuarioSistema(
                     nome=op_data["nome"],
                     login=op_data["login"],
+                    senha_hash=default_password_hash,
                     perfil=op_data["perfil"],
                     status=True,
                 )
                 db.add(op)
                 db.commit()
                 db.refresh(op)
-                print(f"  + Operador criado: {op.nome} ({op.perfil.value})")
+                print(
+                    f"  + Operador criado: {op.nome} ({op.login} | {op.perfil.value})"
+                )
+            else:
+                op.nome = op_data["nome"]
+                op.perfil = op_data["perfil"]
+                op.status = True
+                if not op.senha_hash:
+                    op.senha_hash = default_password_hash
+                db.commit()
+                db.refresh(op)
+                print(
+                    f"  ~ Operador atualizado: {op.nome} "
+                    f"({op.login} | {op.perfil.value})"
+                )
             operadores[op.perfil] = op
 
-        # 2. Lista de Alunos conforme oferta real do IFPE Belo Jardim
+        # 2. Contas Institucionais Oficiais (Google SSO) + Alunos Extras para Paginação
         pessoas_seed = [
-            # Superiores (Graduação)
+            # --- Contas de Teste Oficiais (todos os TipoVinculo) ---
+            {
+                "nome": "Aluno Teste (Avaliação)",
+                "matricula": "20241EWBJ0999",
+                "cpf_idx": 100,
+                "tipo_vinculo": TipoVinculo.ALUNO,
+                "modalidade": ModalidadeEnsino.SUPERIOR,
+                "curso": "Engenharia de Software",
+                "data_nascimento": datetime.date(2002, 5, 10),
+                "status_matricula": "Ativo",
+                "is_interno": False,
+                "email": "aluno_teste@discente.ifpe.edu.br",
+                "foto_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
+                "status": True,
+            },
+            {
+                "nome": "Professor Teste (Avaliação)",
+                "matricula": "SIAPE-PROF-0001",
+                "cpf_idx": 101,
+                "tipo_vinculo": TipoVinculo.PROFESSOR,
+                "modalidade": None,
+                "curso": None,
+                "data_nascimento": datetime.date(1982, 4, 20),
+                "status_matricula": "Ativo",
+                "is_interno": False,
+                "email": "professor_teste@belojardim.ifpe.edu.br",
+                "foto_url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200",
+                "status": True,
+            },
+            {
+                "nome": "Servidor Teste (Avaliação)",
+                "matricula": "SIAPE-SERV-0001",
+                "cpf_idx": 102,
+                "tipo_vinculo": TipoVinculo.SERVIDOR,
+                "modalidade": None,
+                "curso": None,
+                "data_nascimento": datetime.date(1988, 9, 12),
+                "status_matricula": "Ativo",
+                "is_interno": False,
+                "email": "servidor_teste@belojardim.ifpe.edu.br",
+                "foto_url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200",
+                "status": True,
+            },
+            {
+                "nome": "Coordenação Teste (Avaliação)",
+                "matricula": "SIAPE-COORD-0001",
+                "cpf_idx": 103,
+                "tipo_vinculo": TipoVinculo.COORDENACAO,
+                "modalidade": None,
+                "curso": None,
+                "data_nascimento": datetime.date(1980, 11, 3),
+                "status_matricula": "Ativo",
+                "is_interno": False,
+                "email": "coordenacao_teste@belojardim.ifpe.edu.br",
+                "foto_url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200",
+                "status": True,
+            },
+            # --- Alunos Extras para Testes de Paginação e Modalidades ---
             {
                 "nome": "Ricardo Oliveira Santos",
+                "cpf_idx": 200,
                 "tipo_vinculo": TipoVinculo.ALUNO,
                 "modalidade": ModalidadeEnsino.SUPERIOR,
                 "curso": "Engenharia de Software",
@@ -129,68 +204,8 @@ def seed():
                 "status": True,
             },
             {
-                "nome": "Gustavo Nogueira de Araújo",
-                "tipo_vinculo": TipoVinculo.ALUNO,
-                "modalidade": ModalidadeEnsino.SUPERIOR,
-                "curso": "Engenharia de Software",
-                "data_nascimento": datetime.date(2002, 7, 22),
-                "status_matricula": "Ativo",
-                "is_interno": False,
-                "email": "gna1@discente.ifpe.edu.br",
-                "foto_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
-                "status": True,
-            },
-            {
-                "nome": "João da Silva",
-                "tipo_vinculo": TipoVinculo.ALUNO,
-                "modalidade": ModalidadeEnsino.SUPERIOR,
-                "curso": "Análise e Desenvolvimento de Sistemas",
-                "data_nascimento": datetime.date(2003, 11, 5),
-                "status_matricula": "Ativo",
-                "is_interno": True,
-                "email": "js1@discente.ifpe.edu.br",
-                "foto_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
-                "status": True,
-            },
-            {
-                "nome": "Thiago Martins Barbosa",
-                "tipo_vinculo": TipoVinculo.ALUNO,
-                "modalidade": ModalidadeEnsino.SUPERIOR,
-                "curso": "Análise e Desenvolvimento de Sistemas",
-                "data_nascimento": datetime.date(2001, 8, 3),
-                "status_matricula": "Ativo",
-                "is_interno": True,
-                "email": "tmb1@discente.ifpe.edu.br",
-                "foto_url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200",
-                "status": True,
-            },
-            {
-                "nome": "Mariana Santos Costa",
-                "tipo_vinculo": TipoVinculo.ALUNO,
-                "modalidade": ModalidadeEnsino.SUPERIOR,
-                "curso": "Licenciatura em Música",
-                "data_nascimento": datetime.date(2003, 8, 25),
-                "status_matricula": "Ativo",
-                "is_interno": False,
-                "email": "msc1@discente.ifpe.edu.br",
-                "foto_url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200",
-                "status": True,
-            },
-            {
-                "nome": "Beatriz Vasconcelos",
-                "tipo_vinculo": TipoVinculo.ALUNO,
-                "modalidade": ModalidadeEnsino.SUPERIOR,
-                "curso": "Licenciatura em Música",
-                "data_nascimento": datetime.date(2004, 5, 20),
-                "status_matricula": "Ativo",
-                "is_interno": False,
-                "email": "bv1@discente.ifpe.edu.br",
-                "foto_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
-                "status": True,
-            },
-            # Técnicos Integrados ao Ensino Médio
-            {
                 "nome": "Carlos Eduardo Lima",
+                "cpf_idx": 201,
                 "tipo_vinculo": TipoVinculo.ALUNO,
                 "modalidade": ModalidadeEnsino.INTEGRADO,
                 "curso": "Agropecuária",
@@ -198,23 +213,12 @@ def seed():
                 "status_matricula": "Ativo",
                 "is_interno": True,
                 "email": "cel1@discente.ifpe.edu.br",
-                "foto_url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200",
-                "status": True,
-            },
-            {
-                "nome": "Larissa Cavalcanti",
-                "tipo_vinculo": TipoVinculo.ALUNO,
-                "modalidade": ModalidadeEnsino.INTEGRADO,
-                "curso": "Agroindústria",
-                "data_nascimento": datetime.date(2007, 10, 19),
-                "status_matricula": "Ativo",
-                "is_interno": True,
-                "email": "lc1@discente.ifpe.edu.br",
-                "foto_url": "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200",
+                "foto_url": "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200",
                 "status": True,
             },
             {
                 "nome": "Pedro Santos",
+                "cpf_idx": 202,
                 "tipo_vinculo": TipoVinculo.ALUNO,
                 "modalidade": ModalidadeEnsino.INTEGRADO,
                 "curso": "Informática para Internet",
@@ -225,9 +229,10 @@ def seed():
                 "foto_url": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200",
                 "status": False,
             },
-            # Técnicos Subsequentes
             {
                 "nome": "Maria Oliveira",
+                "matricula": "20241AGBJ0002",
+                "cpf_idx": 203,
                 "tipo_vinculo": TipoVinculo.ALUNO,
                 "modalidade": ModalidadeEnsino.SUBSEQUENTE,
                 "curso": "Agroindústria",
@@ -239,22 +244,11 @@ def seed():
                 "status": True,
             },
             {
-                "nome": "Camila Duarte Nogueira",
-                "tipo_vinculo": TipoVinculo.ALUNO,
-                "modalidade": ModalidadeEnsino.SUBSEQUENTE,
-                "curso": "Agropecuária",
-                "data_nascimento": datetime.date(2003, 12, 12),
-                "status_matricula": "Ativo",
-                "is_interno": False,
-                "email": "cdn1@discente.ifpe.edu.br",
-                "foto_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
-                "status": True,
-            },
-            {
                 "nome": "Ana Beatriz Souza",
+                "cpf_idx": 206,
                 "tipo_vinculo": TipoVinculo.ALUNO,
                 "modalidade": ModalidadeEnsino.SUBSEQUENTE,
-                "curso": "Enfermagem",
+                "curso": "Técnico em Enfermagem",
                 "data_nascimento": datetime.date(2002, 1, 30),
                 "status_matricula": "Inativo",
                 "is_interno": False,
@@ -263,20 +257,8 @@ def seed():
                 "status": False,
             },
             {
-                "nome": "Gabriel Henrique Rocha",
-                "tipo_vinculo": TipoVinculo.ALUNO,
-                "modalidade": ModalidadeEnsino.SUBSEQUENTE,
-                "curso": "Informática para Internet",
-                "data_nascimento": datetime.date(2002, 3, 29),
-                "status_matricula": "Ativo",
-                "is_interno": False,
-                "email": "ghr1@discente.ifpe.edu.br",
-                "foto_url": "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200",
-                "status": True,
-            },
-            # Especialização Técnica (Pós-Técnico)
-            {
                 "nome": "Juliana Ferreira Alves",
+                "cpf_idx": 204,
                 "tipo_vinculo": TipoVinculo.ALUNO,
                 "modalidade": ModalidadeEnsino.ESPECIALIZACAO_TECNICA,
                 "curso": "Especialização Técnica em Enfermagem do Trabalho",
@@ -284,12 +266,12 @@ def seed():
                 "status_matricula": "Ativo",
                 "is_interno": False,
                 "email": "jfa1@discente.ifpe.edu.br",
-                "foto_url": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200",
+                "foto_url": "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200",
                 "status": True,
             },
-            # Pós-Graduação (Especialização Lato Sensu)
             {
                 "nome": "Lucas Mendes Ribeiro",
+                "cpf_idx": 205,
                 "tipo_vinculo": TipoVinculo.ALUNO,
                 "modalidade": ModalidadeEnsino.POS_GRADUACAO,
                 "curso": "Pós-Graduação em Enfermagem em Saúde da Família e Comunidade",
@@ -304,22 +286,27 @@ def seed():
 
         curso_sequenciais = {}
         pessoas_instanciadas = {}
-        for idx, p_data in enumerate(pessoas_seed):
-            curso = p_data["curso"]
-            sigla = CURSO_SIGLAS.get(curso, "XX")
-            curso_sequenciais[sigla] = curso_sequenciais.get(sigla, 0) + 1
-            seq = curso_sequenciais[sigla]
-            p_data["matricula"] = generate_matricula(curso, seq)
-            p_data["cpf"] = generate_valid_cpf(idx)
+        for item in pessoas_seed:
+            p_data = dict(item)
+            cpf_idx = p_data.pop("cpf_idx")
+            if "matricula" not in p_data:
+                curso = p_data["curso"]
+                sigla = CURSO_SIGLAS.get(curso, "XX")
+                curso_sequenciais[sigla] = curso_sequenciais.get(sigla, 0) + 1
+                p_data["matricula"] = generate_matricula(
+                    curso, curso_sequenciais[sigla]
+                )
+
+            mat = p_data["matricula"]
+            p_data["cpf"] = generate_valid_cpf(cpf_idx)
             primeiro_nome = p_data["nome"].split()[0].lower()
             status_tag = "ativo" if p_data.get("status", True) else "inativo"
-            mat = p_data["matricula"]
             p_data["qr_code_hash"] = f"{mat}-{primeiro_nome}-{status_tag}"
 
             pessoa = (
                 db.query(Pessoa).filter(Pessoa.matricula == mat).first()
-                or db.query(Pessoa).filter(Pessoa.cpf == p_data["cpf"]).first()
                 or db.query(Pessoa).filter(Pessoa.email == p_data["email"]).first()
+                or db.query(Pessoa).filter(Pessoa.cpf == p_data["cpf"]).first()
             )
             if not pessoa:
                 pessoa = Pessoa(**p_data)
@@ -328,58 +315,69 @@ def seed():
                 db.refresh(pessoa)
                 print(
                     f"  + Pessoa criada: {pessoa.nome} "
-                    f"({pessoa.matricula} - {pessoa.curso})"
+                    f"({pessoa.matricula} - {pessoa.tipo_vinculo.value})"
                 )
             else:
                 for key, val in p_data.items():
                     setattr(pessoa, key, val)
                 db.commit()
                 db.refresh(pessoa)
-                print(f"  ~ Pessoa atualizada: {pessoa.nome} ({pessoa.matricula})")
+                print(
+                    f"  ~ Pessoa atualizada: {pessoa.nome} "
+                    f"({pessoa.matricula} - {pessoa.tipo_vinculo.value})"
+                )
 
             pessoas_instanciadas[pessoa.matricula] = pessoa
 
-        # 3. Gerar Movimentações Realistas
+        # 3. Gerar Movimentações Realistas na Portaria
         porteiro = operadores[PerfilOperador.PORTEIRO]
-        inspetor = operadores[PerfilOperador.INSPETOR_REFEITORIO]
 
-        # Limpar movimentações de teste anteriores se houver poucas
         total_movs = db.query(Movimentacao).count()
         if total_movs < 10:
-            print("Gerando histórico rico de movimentações...")
+            print("Gerando histórico de movimentações de exemplo...")
             now = datetime.datetime.now(datetime.timezone.utc)
             today = now.date()
             yesterday = today - datetime.timedelta(days=1)
 
             sample_movements = [
-                # Movimentações de Hoje
                 (
-                    "20241EWBJ0001",
+                    "20241EWBJ0999",
                     porteiro.id,
                     SentidoMovimentacao.ENTRADA,
                     LocalAcesso.PORTARIA,
                     datetime.datetime.combine(
-                        today,
+                        yesterday,
                         datetime.time(7, 30),
                         tzinfo=datetime.timezone.utc,
                     ),
                 ),
                 (
-                    "20241EWBJ0002",
+                    "20241EWBJ0999",
+                    porteiro.id,
+                    SentidoMovimentacao.SAIDA,
+                    LocalAcesso.PORTARIA,
+                    datetime.datetime.combine(
+                        yesterday,
+                        datetime.time(17, 15),
+                        tzinfo=datetime.timezone.utc,
+                    ),
+                ),
+                (
+                    "20241EWBJ0999",
                     porteiro.id,
                     SentidoMovimentacao.ENTRADA,
                     LocalAcesso.PORTARIA,
                     datetime.datetime.combine(
                         today,
-                        datetime.time(7, 45),
+                        datetime.time(7, 40),
                         tzinfo=datetime.timezone.utc,
                     ),
                 ),
                 (
-                    "20241ADBJ0001",
-                    inspetor.id,
+                    "20241EWBJ0001",
+                    porteiro.id,
                     SentidoMovimentacao.ENTRADA,
-                    LocalAcesso.REFEITORIO,
+                    LocalAcesso.PORTARIA,
                     datetime.datetime.combine(
                         today,
                         datetime.time(8, 0),
@@ -398,168 +396,13 @@ def seed():
                     ),
                 ),
                 (
-                    "20241MUBJ0001",
-                    porteiro.id,
-                    SentidoMovimentacao.ENTRADA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(9, 10),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241AGBJ0001",
-                    inspetor.id,
-                    SentidoMovimentacao.ENTRADA,
-                    LocalAcesso.REFEITORIO,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(11, 45),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241ADBJ0001",
-                    inspetor.id,
-                    SentidoMovimentacao.ENTRADA,
-                    LocalAcesso.REFEITORIO,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(12, 0),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241EWBJ0001",
-                    porteiro.id,
-                    SentidoMovimentacao.SAIDA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(12, 30),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241EWBJ0002",
-                    porteiro.id,
-                    SentidoMovimentacao.SAIDA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(12, 35),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241EWBJ0001",
+                    "20241AGBJ0002",
                     porteiro.id,
                     SentidoMovimentacao.ENTRADA,
                     LocalAcesso.PORTARIA,
                     datetime.datetime.combine(
                         today,
                         datetime.time(13, 30),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241ETBJ0001",
-                    porteiro.id,
-                    SentidoMovimentacao.ENTRADA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(13, 50),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241ESBJ0001",
-                    porteiro.id,
-                    SentidoMovimentacao.ENTRADA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(14, 0),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241MUBJ0001",
-                    porteiro.id,
-                    SentidoMovimentacao.SAIDA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(16, 45),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241APBJ0001",
-                    porteiro.id,
-                    SentidoMovimentacao.SAIDA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(17, 10),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241EWBJ0001",
-                    porteiro.id,
-                    SentidoMovimentacao.SAIDA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        today,
-                        datetime.time(17, 30),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                # Movimentações de Ontem
-                (
-                    "20241EWBJ0001",
-                    porteiro.id,
-                    SentidoMovimentacao.ENTRADA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        yesterday,
-                        datetime.time(7, 35),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241EWBJ0002",
-                    porteiro.id,
-                    SentidoMovimentacao.ENTRADA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        yesterday,
-                        datetime.time(7, 50),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241EWBJ0001",
-                    porteiro.id,
-                    SentidoMovimentacao.SAIDA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        yesterday,
-                        datetime.time(17, 20),
-                        tzinfo=datetime.timezone.utc,
-                    ),
-                ),
-                (
-                    "20241EWBJ0002",
-                    porteiro.id,
-                    SentidoMovimentacao.SAIDA,
-                    LocalAcesso.PORTARIA,
-                    datetime.datetime.combine(
-                        yesterday,
-                        datetime.time(17, 25),
                         tzinfo=datetime.timezone.utc,
                     ),
                 ),

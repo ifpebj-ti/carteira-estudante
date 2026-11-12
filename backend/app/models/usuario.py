@@ -12,6 +12,7 @@ class UsuarioSistema(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, nullable=False)
     login = Column(String, unique=True, index=True, nullable=False)
+    senha_hash = Column(String, nullable=False)
     perfil = Column(
         SQLEnum(PerfilOperador, native_enum=False),
         nullable=False,

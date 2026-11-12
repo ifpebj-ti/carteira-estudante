@@ -26,7 +26,11 @@ def main():
     operador = db.query(UsuarioSistema).first()
     if not operador:
         operador = UsuarioSistema(
-            id=1, nome="Admin", login="admin@test.com", perfil="ADMIN"
+            id=1,
+            nome="Admin",
+            login="admin@test.com",
+            senha_hash="hashed_test_secret",  # noqa: S106
+            perfil="ADMIN",
         )
         db.add(operador)
     db.commit()

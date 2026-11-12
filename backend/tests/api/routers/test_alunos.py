@@ -52,6 +52,7 @@ def test_list_pessoas_allowed_for_admin(client, db_session):
             id=1,
             nome="Admin Test",
             login="admin@test.com",
+            senha_hash="hashed_test_secret",  # noqa: S106
             perfil=PerfilOperador.ADMIN,
             status=True,
         )
@@ -86,6 +87,7 @@ def test_update_pessoa_patch_success(client, db_session):
             id=1,
             nome="Admin Test",
             login="admin@test.com",
+            senha_hash="hashed_test_secret",  # noqa: S106
             perfil=PerfilOperador.ADMIN,
             status=True,
         )
@@ -115,6 +117,7 @@ def test_update_pessoa_not_found(client):
             id=1,
             nome="Admin Test",
             login="admin@test.com",
+            senha_hash="hashed_test_secret",  # noqa: S106
             perfil=PerfilOperador.ADMIN,
             status=True,
         )

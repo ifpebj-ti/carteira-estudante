@@ -12,6 +12,7 @@ def override_get_current_user():
         id=1,
         nome="Operador Test",
         login="op@test.com",
+        senha_hash="hashed_test_secret",  # noqa: S106
         perfil=PerfilOperador.PORTEIRO,
         status=True,
     )
@@ -37,6 +38,7 @@ def test_scan_qr_code_success(client: TestClient, db_session):
             id=1,
             nome="Operador Test",
             login="op@test.com",
+            senha_hash="hashed_test_secret",  # noqa: S106
             perfil=PerfilOperador.PORTEIRO,
         )
         db_session.add(operador)
