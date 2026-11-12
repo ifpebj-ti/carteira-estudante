@@ -3,8 +3,16 @@ from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
 from app.api.dependencies.security import RoleChecker, get_current_user
+from app.core.security import get_password_hash, verify_password
 from app.models.enums import PerfilOperador
 from app.models.usuario import UsuarioSistema
+
+
+def test_password_hashing_and_verification():
+    hashed = get_password_hash("SenhaForte@123")
+    assert hashed != "SenhaForte@123"
+    assert verify_password("SenhaForte@123", hashed) is True
+    assert verify_password("SenhaErrada", hashed) is False
 
 
 def test_role_checker_unit_success():
@@ -12,6 +20,7 @@ def test_role_checker_unit_success():
         id=1,
         nome="Admin User",
         login="admin@ifpe.edu.br",
+        senha_hash="hashed_test_secret",  # noqa: S106
         perfil=PerfilOperador.ADMIN,
         status=True,
     )
@@ -25,6 +34,7 @@ def test_role_checker_unit_forbidden():
         id=2,
         nome="Porteiro User",
         login="porteiro@ifpe.edu.br",
+        senha_hash="hashed_test_secret",  # noqa: S106
         perfil=PerfilOperador.PORTEIRO,
         status=True,
     )
@@ -51,6 +61,7 @@ def test_list_usuarios_forbidden_for_porteiro(client: TestClient):
             id=2,
             nome="Porteiro Test",
             login="porteiro@test.com",
+            senha_hash="hashed_test_secret",  # noqa: S106
             perfil=PerfilOperador.PORTEIRO,
             status=True,
         )
@@ -71,6 +82,7 @@ def test_list_usuarios_allowed_for_admin(client: TestClient, db_session):
             id=1,
             nome="Admin Test",
             login="admin@test.com",
+            senha_hash="hashed_test_secret",  # noqa: S106
             perfil=PerfilOperador.ADMIN,
             status=True,
         )

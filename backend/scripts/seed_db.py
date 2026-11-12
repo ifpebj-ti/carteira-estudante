@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
+from app.core.security import get_password_hash
 from app.models.enums import (
     LocalAcesso,
     ModalidadeEnsino,
@@ -104,6 +105,7 @@ def seed():
                 op = UsuarioSistema(
                     nome=op_data["nome"],
                     login=op_data["login"],
+                    senha_hash=get_password_hash("Mudar@123"),
                     perfil=op_data["perfil"],
                     status=True,
                 )
@@ -111,6 +113,10 @@ def seed():
                 db.commit()
                 db.refresh(op)
                 print(f"  + Operador criado: {op.nome} ({op.perfil.value})")
+            elif not op.senha_hash:
+                op.senha_hash = get_password_hash("Mudar@123")
+                db.commit()
+                db.refresh(op)
             operadores[op.perfil] = op
 
         # 2. Lista de Alunos conforme oferta real do IFPE Belo Jardim
