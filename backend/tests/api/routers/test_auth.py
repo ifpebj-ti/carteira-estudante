@@ -1,8 +1,13 @@
+import datetime
+
+import jwt
 import pytest
 from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from app.api.dependencies.security import RoleChecker, get_current_user
+from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 from app.models.enums import PerfilOperador
 from app.models.usuario import UsuarioSistema
@@ -101,3 +106,185 @@ def test_list_usuarios_allowed_for_admin(client: TestClient, db_session):
         assert any(u["login"] == admin.login for u in data)
     finally:
         client.app.dependency_overrides.clear()
+
+
+def _create_operator(
+    db_session,
+    *,
+    nome: str,
+    login: str,
+    senha_hash: str,
+    perfil: PerfilOperador,
+    ativo: bool = True,
+) -> UsuarioSistema:
+    # Outros testes inserem id=1 manualmente sem avançar a sequence no Postgres
+    db_session.execute(
+        text(
+            "SELECT setval("
+            "pg_get_serial_sequence('usuarios_sistema', 'id'), "
+            "COALESCE((SELECT MAX(id) FROM usuarios_sistema), 1), "
+            "(SELECT EXISTS(SELECT 1 FROM usuarios_sistema))"
+            ")"
+        )
+    )
+    operador = UsuarioSistema(
+        nome=nome,
+        login=login,
+        senha_hash=senha_hash,
+        perfil=perfil,
+        status=ativo,
+    )
+    db_session.add(operador)
+    db_session.commit()
+    db_session.refresh(operador)
+    return operador
+
+
+def test_login_manual_success(client: TestClient, db_session):
+    operador = _create_operator(
+        db_session,
+        nome="Operador Login Teste",
+        login="admin_login_ok",
+        senha_hash=get_password_hash("Mudar@123"),
+        perfil=PerfilOperador.ADMIN,
+    )
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"login": "admin_login_ok", "senha": "Mudar@123"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["token_type"] == "bearer"  # noqa: S105
+    assert "access_token" in data and data["access_token"]
+
+    payload = jwt.decode(
+        data["access_token"], settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+    )
+    assert payload["sub"] == str(operador.id)
+    assert payload["role"] == PerfilOperador.ADMIN.value
+
+    protected_resp = client.get(
+        "/api/v1/auth/usuarios",
+        headers={"Authorization": f"Bearer {data['access_token']}"},
+    )
+    assert protected_resp.status_code == status.HTTP_200_OK
+
+
+def test_login_manual_wrong_password(client: TestClient, db_session):
+    _create_operator(
+        db_session,
+        nome="Operador Senha Errada",
+        login="porteiro_login_errado",
+        senha_hash=get_password_hash("SenhaCorreta@123"),
+        perfil=PerfilOperador.PORTEIRO,
+    )
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"login": "porteiro_login_errado", "senha": "SenhaIncorreta"},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json()["detail"] == "Credenciais inválidas"
+
+
+def test_login_manual_user_not_found(client: TestClient):
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"login": "usuario_inexistente", "senha": "Mudar@123"},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json()["detail"] == "Credenciais inválidas"
+
+
+def test_login_manual_empty_hash_returns_401(client: TestClient, db_session):
+    _create_operator(
+        db_session,
+        nome="Operador Sem Senha Local",
+        login="sso_sem_senha",
+        senha_hash="",
+        perfil=PerfilOperador.PORTEIRO,
+    )
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"login": "sso_sem_senha", "senha": "Mudar@123"},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json()["detail"] == "Credenciais inválidas"
+
+
+def test_login_manual_porteiro_respects_role_checker(client: TestClient, db_session):
+    operador = _create_operator(
+        db_session,
+        nome="Porteiro Login Teste",
+        login="porteiro_login_ok",
+        senha_hash=get_password_hash("Mudar@123"),
+        perfil=PerfilOperador.PORTEIRO,
+    )
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"login": "porteiro_login_ok", "senha": "Mudar@123"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    token = response.json()["access_token"]
+
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    assert payload["sub"] == str(operador.id)
+    assert payload["role"] == PerfilOperador.PORTEIRO.value
+
+    me_resp = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert me_resp.status_code == status.HTTP_200_OK
+    assert me_resp.json()["email"] == "porteiro_login_ok"
+
+    admin_only_resp = client.get(
+        "/api/v1/auth/usuarios",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert admin_only_resp.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_login_manual_inactive_user_returns_403(client: TestClient, db_session):
+    _create_operator(
+        db_session,
+        nome="Operador Inativo",
+        login="operador_inativo",
+        senha_hash=get_password_hash("Mudar@123"),
+        perfil=PerfilOperador.PORTEIRO,
+        ativo=False,
+    )
+
+    wrong_resp = client.post(
+        "/api/v1/auth/login",
+        json={"login": "operador_inativo", "senha": "SenhaErrada"},
+    )
+    assert wrong_resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+    valid_resp = client.post(
+        "/api/v1/auth/login",
+        json={"login": "operador_inativo", "senha": "Mudar@123"},
+    )
+    assert valid_resp.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_login_manual_deleted_user_returns_401(client: TestClient, db_session):
+    operador = _create_operator(
+        db_session,
+        nome="Operador Removido",
+        login="operador_removido",
+        senha_hash=get_password_hash("Mudar@123"),
+        perfil=PerfilOperador.ADMIN,
+    )
+    operador.deleted_at = datetime.datetime.now(datetime.timezone.utc)
+    db_session.commit()
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"login": "operador_removido", "senha": "Mudar@123"},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json()["detail"] == "Credenciais inválidas"

@@ -1,5 +1,6 @@
 # Pydantic schemas (Validação de I/O)
 
+from app.schemas.auth import LoginRequest, TokenResponse
 from app.schemas.movimentacao import (
     MovimentacaoBase,
     MovimentacaoCreate,
@@ -16,6 +17,8 @@ from app.schemas.pessoa import (
 from app.schemas.usuario import UsuarioBase, UsuarioResponse
 
 __all__ = [
+    "LoginRequest",
+    "TokenResponse",
     "UsuarioBase",
     "UsuarioResponse",
     "PessoaBase",
