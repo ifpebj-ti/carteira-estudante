@@ -12,6 +12,7 @@ from app.schemas.pessoa import (
     PessoaBase,
     PessoaCreate,
     PessoaDetailResponse,
+    PessoaMeResponse,
     PessoaResponse,
 )
 from app.schemas.usuario import UsuarioBase, UsuarioResponse
@@ -24,6 +25,7 @@ __all__ = [
     "PessoaBase",
     "PessoaCreate",
     "PessoaResponse",
+    "PessoaMeResponse",
     "PessoaDetailResponse",
     "MovimentacaoBase",
     "MovimentacaoCreate",

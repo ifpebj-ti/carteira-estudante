@@ -5,16 +5,24 @@ from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from pwdlib.exceptions import UnknownHashError
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.security import RoleChecker, get_current_user
+from app.api.dependencies.security import (
+    RoleChecker,
+    get_current_pessoa,
+    get_current_user,
+)
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import verify_password
 from app.models.enums import PerfilOperador
+from app.models.pessoa import Pessoa
 from app.models.usuario import UsuarioSistema
 from app.schemas.auth import LoginRequest, TokenResponse
+from app.schemas.pessoa import PessoaMeResponse, PessoaResponse
 from app.schemas.usuario import UsuarioResponse
+from app.services.qr_crypto_service import generate_qr_token
 
 router = APIRouter(tags=["Auth"])
 
@@ -42,61 +50,18 @@ def create_access_token(data: dict) -> str:
     return encoded_jwt
 
 
-@router.post(
-    "/login",
-    response_model=TokenResponse,
-    summary="Login manual para operadores",
-)
-def login_manual(
-    payload: LoginRequest,
-    response: Response,
-    db: Session = Depends(get_db),
-) -> TokenResponse:
-    """
-    Autentica um operador cadastrado em `usuarios_sistema` via login e senha.
-    Retorna o token JWT e define o cookie HttpOnly de sessão.
-    """
-    usuario = (
-        db.query(UsuarioSistema)
-        .filter(
-            UsuarioSistema.login == payload.login,
-            UsuarioSistema.deleted_at.is_(None),
-        )
-        .first()
-    )
+def _verify_stored_password(plain_password: str, stored_hash: str | None) -> bool:
+    """Verifica senha contra hash armazenado com proteção contra hashes ausentes."""
+    if not stored_hash:
+        return False
+    try:
+        return verify_password(plain_password, stored_hash)
+    except UnknownHashError:
+        return False
 
-    password_valid = False
-    if usuario and usuario.senha_hash:
-        try:
-            password_valid = verify_password(payload.senha, usuario.senha_hash)
-        except UnknownHashError:
-            password_valid = False
 
-    if not usuario or not password_valid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciais inválidas",
-        )
-
-    if not usuario.status:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso Negado. Usuário inativo.",
-        )
-
-    role_value = (
-        usuario.perfil.value
-        if hasattr(usuario.perfil, "value")
-        else str(usuario.perfil)
-    )
-    access_token = create_access_token(
-        {
-            "sub": str(usuario.id),
-            "login": usuario.login,
-            "role": role_value,
-        }
-    )
-
+def _set_auth_cookie(response: Response, access_token: str) -> None:
+    """Define o cookie HttpOnly de sessão na resposta HTTP."""
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -105,7 +70,158 @@ def login_manual(
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
-    return TokenResponse(access_token=access_token, token_type="bearer")  # noqa: S106
+
+def _find_active_pessoa_by_identifier(db: Session, identifier: str) -> Pessoa | None:
+    """Busca titular ativo por matrícula exata ou e-mail (case-insensitive)."""
+    normalized = identifier.strip()
+    if not normalized:
+        return None
+
+    pessoa = (
+        db.query(Pessoa)
+        .filter(Pessoa.matricula == normalized, Pessoa.deleted_at.is_(None))
+        .first()
+    )
+    if pessoa:
+        return pessoa
+
+    return (
+        db.query(Pessoa)
+        .filter(
+            func.lower(Pessoa.email) == normalized.lower(),
+            Pessoa.deleted_at.is_(None),
+        )
+        .first()
+    )
+
+
+def _extract_enum_value(value: object) -> str:
+    return value.value if hasattr(value, "value") else str(value)
+
+
+def _issue_login_response(
+    account: UsuarioSistema | Pessoa | None,
+    senha: str,
+    response: Response,
+    *,
+    account_type: str,
+    role_attr: str,
+    identity_claim: tuple[str, str],
+    inactive_detail: str,
+) -> TokenResponse:
+    """Valida senha e status da conta e emite JWT + cookie HttpOnly de sessão."""
+    if not account or not _verify_stored_password(senha, account.senha_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais inválidas",
+        )
+    if not account.status:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=inactive_detail,
+        )
+
+    role_value = _extract_enum_value(getattr(account, role_attr))
+    claim_key, attr_name = identity_claim
+    access_token = create_access_token(
+        {
+            "sub": str(account.id),
+            claim_key: getattr(account, attr_name),
+            "role": role_value,
+            "account_type": account_type,
+        }
+    )
+    _set_auth_cookie(response, access_token)
+
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",  # noqa: S106
+        account_type=account_type,
+        role=role_value,
+    )
+
+
+def _authenticate_operator(
+    usuario: UsuarioSistema, senha: str, response: Response
+) -> TokenResponse:
+    return _issue_login_response(
+        usuario,
+        senha,
+        response,
+        account_type="operador",
+        role_attr="perfil",
+        identity_claim=("login", "login"),
+        inactive_detail="Acesso Negado. Usuário inativo.",
+    )
+
+
+def _authenticate_pessoa(
+    pessoa: Pessoa | None, senha: str, response: Response
+) -> TokenResponse:
+    return _issue_login_response(
+        pessoa,
+        senha,
+        response,
+        account_type="pessoa",
+        role_attr="tipo_vinculo",
+        identity_claim=("matricula", "matricula"),
+        inactive_detail="Acesso Negado. Carteira digital inativa.",
+    )
+
+
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    summary="Login manual para operadores e titulares",
+)
+def login_manual(
+    payload: LoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """
+    Autentica operadores (`usuarios_sistema`) por login/senha ou titulares
+    (`pessoas`) por matrícula/e-mail e senha quando não houver operador com o login.
+    Retorna o token JWT e define o cookie HttpOnly de sessão.
+    """
+    login_id = payload.login.strip()
+    if not login_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais inválidas",
+        )
+
+    usuario = (
+        db.query(UsuarioSistema)
+        .filter(
+            UsuarioSistema.login == login_id,
+            UsuarioSistema.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if usuario:
+        return _authenticate_operator(usuario, payload.senha, response)
+
+    pessoa = _find_active_pessoa_by_identifier(db, login_id)
+    return _authenticate_pessoa(pessoa, payload.senha, response)
+
+
+@router.post(
+    "/pessoa/login",
+    response_model=TokenResponse,
+    summary="Login manual exclusivo para titulares da carteira",
+)
+def login_pessoa(
+    payload: LoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """
+    Autentica explicitamente uma conta institucional da tabela `pessoas`
+    (Aluno, Professor, Servidor ou Coordenação) por matrícula ou e-mail e senha.
+    """
+    pessoa = _find_active_pessoa_by_identifier(db, payload.login)
+    return _authenticate_pessoa(pessoa, payload.senha, response)
 
 
 @router.get("/login/google")
@@ -164,7 +280,12 @@ async def auth_callback(
 
     # Gera token de acesso JWT interno
     access_token = create_access_token(
-        {"sub": str(usuario.id), "email": usuario.login, "perfil": usuario.perfil}
+        {
+            "sub": str(usuario.id),
+            "email": usuario.login,
+            "perfil": usuario.perfil,
+            "account_type": "operador",
+        }
     )
 
     # Redireciona para o frontend padronizado (ex: http://localhost:3000/admin)
@@ -173,13 +294,7 @@ async def auth_callback(
     redirect_resp = RedirectResponse(url=frontend_url)
 
     # Injetando o JWT num cookie HttpOnly para segurança
-    redirect_resp.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        samesite="lax",  # Permite envio via redirecionamentos cross-origin
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    )
+    _set_auth_cookie(redirect_resp, access_token)
 
     return redirect_resp
 
@@ -208,6 +323,24 @@ async def get_me(current_user: UsuarioSistema = Depends(get_current_user)):
         "email": current_user.login,
         "perfil": current_user.perfil,
     }
+
+
+@router.get(
+    "/pessoa/me",
+    response_model=PessoaMeResponse,
+    summary="Perfil e QR Code dinâmico do titular autenticado",
+)
+def get_pessoa_me(current_pessoa: Pessoa = Depends(get_current_pessoa)):
+    """
+    Retorna os dados da conta institucional autenticada (`Pessoa`) sem `senha_hash`
+    junto com um token de QR Code dinâmico pronto para exibição na carteira digital.
+    """
+    base_data = PessoaResponse.model_validate(current_pessoa).model_dump()
+    return PessoaMeResponse(
+        **base_data,
+        qr_token=generate_qr_token(current_pessoa.id),
+        qr_expires_in=settings.QR_CODE_EXPIRE_SECONDS,
+    )
 
 
 @router.get(

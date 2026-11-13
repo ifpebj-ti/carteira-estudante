@@ -22,6 +22,16 @@ def decode_qr_token(token: str) -> int:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
+        # Tokens de sessão (operador/pessoa) não devem ser aceitos como QR Code dinâmico
+        if (
+            payload.get("account_type") is not None
+            or payload.get("role") is not None
+            or payload.get("perfil") is not None
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Forged or invalid QR Code.",
+            )
         pessoa_id: str = payload.get("sub")
         if pessoa_id is None:
             raise HTTPException(
