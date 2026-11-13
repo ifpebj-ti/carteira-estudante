@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getApiBaseUrl, performLogout } from "@/services/auth";
+import { formatLocalAcesso, formatVinculoLabel } from "@/services/labels";
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -14,8 +16,14 @@ import {
 interface Movimentacao {
   id: number;
   tipo: string;
+  local_acesso?: string | null;
+  operador_nome?: string | null;
   data_hora: string;
-  pessoa: { nome: string; matricula: string };
+  pessoa: {
+    nome: string;
+    matricula: string;
+    tipo_vinculo?: string | null;
+  };
 }
 
 export default function MovimentacoesPage() {
@@ -46,14 +54,22 @@ export default function MovimentacoesPage() {
       try {
         setCarregando(true);
 
-        const resAlunos = await fetch("http://localhost:8000/api/v1/pessoas", {
+        const apiBaseUrl = getApiBaseUrl();
+
+        const resAlunos = await fetch(`${apiBaseUrl}/api/v1/pessoas`, {
           credentials: "include",
           headers: { Accept: "application/json" },
         });
 
         if (resAlunos.status === 401) {
-          window.location.href = "http://localhost:3000/";
+          performLogout();
           return;
+        }
+
+        if (resAlunos.status === 403) {
+          throw new Error(
+            "Permissão negada para acessar a auditoria de movimentações."
+          );
         }
 
         if (!resAlunos.ok)
@@ -69,42 +85,48 @@ export default function MovimentacoesPage() {
 
           let todasMovimentacoes: Movimentacao[] = [];
 
-          const promessasDetalhes = listaBasica.map(async (alunoBasico) => {
-            try {
-              const resDetalhe = await fetch(
-                `http://localhost:8000/api/v1/pessoas/${alunoBasico.matricula}`,
-                {
-                  credentials: "include",
-                  headers: { Accept: "application/json" },
-                }
-              );
+          const promessasDetalhes = listaBasica.map(
+            async (alunoBasico: { matricula: string }) => {
+              try {
+                const resDetalhe = await fetch(
+                  `${apiBaseUrl}/api/v1/pessoas/${alunoBasico.matricula}`,
+                  {
+                    credentials: "include",
+                    headers: { Accept: "application/json" },
+                  }
+                );
 
-              if (resDetalhe.ok) {
-                const alunoDetalhado = await resDetalhe.json();
+                if (resDetalhe.ok) {
+                  const alunoDetalhado = await resDetalhe.json();
 
-                if (
-                  alunoDetalhado.movimentacoes &&
-                  Array.isArray(alunoDetalhado.movimentacoes)
-                ) {
-                  const movsDoAluno = alunoDetalhado.movimentacoes.map(
-                    (m: any) => ({
-                      ...m,
-                      pessoa: {
-                        nome: alunoDetalhado.nome,
-                        matricula: alunoDetalhado.matricula,
-                      },
-                    })
-                  );
-                  todasMovimentacoes = [...todasMovimentacoes, ...movsDoAluno];
+                  if (
+                    alunoDetalhado.movimentacoes &&
+                    Array.isArray(alunoDetalhado.movimentacoes)
+                  ) {
+                    const movsDoAluno = alunoDetalhado.movimentacoes.map(
+                      (m: Omit<Movimentacao, "pessoa">) => ({
+                        ...m,
+                        pessoa: {
+                          nome: alunoDetalhado.nome,
+                          matricula: alunoDetalhado.matricula,
+                          tipo_vinculo: alunoDetalhado.tipo_vinculo,
+                        },
+                      })
+                    );
+                    todasMovimentacoes = [
+                      ...todasMovimentacoes,
+                      ...movsDoAluno,
+                    ];
+                  }
                 }
+              } catch (err) {
+                console.error(
+                  `Erro ao buscar detalhes do aluno ${alunoBasico.matricula}`,
+                  err
+                );
               }
-            } catch (err) {
-              console.error(
-                `Erro ao buscar detalhes do aluno ${alunoBasico.matricula}`,
-                err
-              );
             }
-          });
+          );
 
           await Promise.all(promessasDetalhes);
 
@@ -269,7 +291,7 @@ export default function MovimentacoesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1.5">
-              Nome do Aluno
+              Nome do Titular
             </label>
             <input
               type="text"
@@ -285,7 +307,7 @@ export default function MovimentacoesPage() {
 
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1.5">
-              Matrícula
+              Matrícula / ID
             </label>
             <input
               type="text"
@@ -294,7 +316,7 @@ export default function MovimentacoesPage() {
                 setFiltroMatricula(e.target.value);
                 setPaginaAtual(1);
               }}
-              placeholder="Nº Matrícula"
+              placeholder="Nº Matrícula ou SIAPE"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
             />
           </div>
@@ -327,12 +349,13 @@ export default function MovimentacoesPage() {
       {/* Table Section */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[650px]">
+          <table className="w-full text-left border-collapse min-w-[750px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                <th className="py-3.5 px-6">Nome do Aluno</th>
-                <th className="py-3.5 px-6">Matrícula</th>
+                <th className="py-3.5 px-6">Titular</th>
+                <th className="py-3.5 px-6">Matrícula / ID</th>
                 <th className="py-3.5 px-6">Tipo</th>
+                <th className="py-3.5 px-6">Local / Operador</th>
                 <th className="py-3.5 px-6">Data</th>
                 <th className="py-3.5 px-6">Horário</th>
               </tr>
@@ -340,7 +363,7 @@ export default function MovimentacoesPage() {
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
               {erro ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-rose-500">
+                  <td colSpan={6} className="py-8 text-center text-rose-500">
                     <AlertCircle className="w-6 h-6 mx-auto mb-2" />
                     <p className="font-semibold">
                       Erro ao carregar movimentações
@@ -350,7 +373,7 @@ export default function MovimentacoesPage() {
                 </tr>
               ) : carregando ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-500">
+                  <td colSpan={6} className="py-8 text-center text-slate-500">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-600 mb-2" />
                     Buscando dados no servidor...
                   </td>
@@ -361,13 +384,24 @@ export default function MovimentacoesPage() {
                     key={`${mov.id}-${index}`}
                     className="hover:bg-slate-50/50 transition-colors"
                   >
-                    <td className="py-4 px-6 font-medium text-slate-900 flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0 uppercase">
-                        {mov.pessoa.nome.charAt(0)}
+                    <td className="py-4 px-6 font-medium text-slate-900">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0 uppercase">
+                          {mov.pessoa.nome.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900">
+                            {mov.pessoa.nome}
+                          </p>
+                          {mov.pessoa.tipo_vinculo && (
+                            <p className="text-[11px] font-semibold text-slate-500">
+                              {formatVinculoLabel(mov.pessoa.tipo_vinculo)}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      {mov.pessoa.nome}
                     </td>
-                    <td className="py-4 px-6 text-slate-500">
+                    <td className="py-4 px-6 text-slate-500 font-mono text-xs">
                       {mov.pessoa.matricula}
                     </td>
                     <td className="py-4 px-6">
@@ -386,6 +420,14 @@ export default function MovimentacoesPage() {
                         {mov.tipo === "ENTRADA" ? "Entrada" : "Saída"}
                       </span>
                     </td>
+                    <td className="py-4 px-6">
+                      <p className="text-xs font-medium text-slate-700">
+                        {formatLocalAcesso(mov.local_acesso)}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {mov.operador_nome || "Catraca Automática"}
+                      </p>
+                    </td>
                     <td className="py-4 px-6 text-slate-500">
                       {formatarData(mov.data_hora)}
                     </td>
@@ -396,7 +438,7 @@ export default function MovimentacoesPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-500">
+                  <td colSpan={6} className="py-8 text-center text-slate-500">
                     Nenhuma movimentação encontrada com os filtros selecionados.
                   </td>
                 </tr>

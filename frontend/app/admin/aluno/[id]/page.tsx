@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
+import { PessoaPhoto } from "@/components/ui/PessoaPhoto";
+import { getApiBaseUrl, performLogout } from "@/services/auth";
 import {
   FileText,
   Settings,
@@ -73,15 +74,20 @@ export default function AlunoDetailsPage() {
       setCarregando(true);
       setErro("");
       try {
-        const res = await fetch(
-          `http://localhost:8000/api/v1/pessoas/${matricula}`,
-          {
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-            },
-          }
-        );
+        const apiBaseUrl = getApiBaseUrl();
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${apiBaseUrl}/api/v1/pessoas/${matricula}`, {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (res.status === 401) {
+          performLogout();
+          return;
+        }
 
         if (!res.ok) {
           throw new Error(
@@ -171,15 +177,11 @@ export default function AlunoDetailsPage() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div className="relative w-14 h-14 md:w-16 md:h-16 bg-slate-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden shrink-0 z-0">
-            <Image
-              src={
-                aluno.foto_url ||
-                "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&q=80"
-              }
+            <PessoaPhoto
+              src={aluno.foto_url}
               alt={aluno.nome}
-              fill
               sizes="(max-width: 768px) 56px, 64px"
-              className="object-cover"
+              iconClassName="w-7 h-7 text-slate-400"
             />
           </div>
           <div>
@@ -451,16 +453,12 @@ export default function AlunoDetailsPage() {
               </div>
 
               <div className="p-5 flex gap-4">
-                <div className="relative w-20 h-24 bg-white/10 rounded-lg shrink-0 overflow-hidden border-2 border-white/20 z-0">
-                  <Image
-                    src={
-                      aluno.foto_url ||
-                      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&q=80"
-                    }
-                    alt="Foto do aluno"
-                    fill
+                <div className="relative w-20 h-24 bg-white/10 rounded-lg shrink-0 overflow-hidden border-2 border-white/20 z-0 flex items-center justify-center">
+                  <PessoaPhoto
+                    src={aluno.foto_url}
+                    alt={aluno.nome}
                     sizes="(max-width: 768px) 64px, 80px"
-                    className="object-cover"
+                    iconClassName="w-8 h-8 text-primary-200"
                   />
                 </div>
                 <div className="flex flex-col justify-center">

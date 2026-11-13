@@ -1,8 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { PessoaPhoto } from "@/components/ui/PessoaPhoto";
+import { getApiBaseUrl, performLogout } from "@/services/auth";
 import {
   Search,
   Edit,
@@ -42,8 +43,7 @@ export default function ListaAlunosPage() {
     const fetchAlunos = async () => {
       try {
         setCarregando(true);
-        const apiBaseUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiBaseUrl = getApiBaseUrl();
         const token = localStorage.getItem("token");
         const res = await fetch(`${apiBaseUrl}/api/v1/pessoas`, {
           credentials: "include",
@@ -52,6 +52,17 @@ export default function ListaAlunosPage() {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         });
+
+        if (res.status === 401) {
+          performLogout();
+          return;
+        }
+
+        if (res.status === 403) {
+          throw new Error(
+            "Permissão negada para consultar a listagem cadastral."
+          );
+        }
 
         if (!res.ok) {
           throw new Error(`Erro ao carregar dados: ${res.status}`);
@@ -233,16 +244,11 @@ export default function ListaAlunosPage() {
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="relative w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-200">
-                          <Image
-                            src={
-                              aluno.foto_url ||
-                              "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100"
-                            }
+                        <div className="relative w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                          <PessoaPhoto
+                            src={aluno.foto_url}
                             alt={aluno.nome}
-                            fill
                             sizes="40px"
-                            className="object-cover"
                           />
                         </div>
                         <div className="flex flex-col">
