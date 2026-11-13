@@ -1,6 +1,7 @@
 <link href="docs/Stylesheet.css" rel="stylesheet"></link>
 
 ## System Description
+
 &nbsp;
 
 {tm.description}
@@ -9,16 +10,15 @@
 
 {tm.assumptions:if:
 
-|Assumptions|
-|-----------|
-{tm.assumptions:repeat:|{{item}}| 
-}
+| Assumptions             |
+| ----------------------- |
+| {tm.assumptions:repeat: | {{item}} |
+| }                       |
 
 &nbsp;
 &nbsp;
 &nbsp;
 }
-
 
 ## Dataflow Diagram - Level 0 DFD
 
@@ -27,20 +27,22 @@
 &nbsp;
 
 ## Dataflows
+
 &nbsp;
 
-Name|From|To |Data|Protocol|Port
-|:----:|:----:|:---:|:----:|:--------:|:----:|
-{dataflows:repeat:|{{item.name}}|{{item.source.name}}|{{item.sink.name}}|{{item.data}}|{{item.protocol}}|{{item.dstPort}}|
-}
+|        Name        |     From      |          To          |        Data        |   Protocol    |       Port        |
+| :----------------: | :-----------: | :------------------: | :----------------: | :-----------: | :---------------: |
+| {dataflows:repeat: | {{item.name}} | {{item.source.name}} | {{item.sink.name}} | {{item.data}} | {{item.protocol}} | {{item.dstPort}} |
+|         }          |
 
 ## Data Dictionary
+
 &nbsp;
 
-Name|Description|Classification
-|:----:|:--------:|:----:|
-{data:repeat:|{{item.name}}|{{item.description}}|{{item.classification.name}}|
-}
+|     Name      |  Description  |    Classification    |
+| :-----------: | :-----------: | :------------------: |
+| {data:repeat: | {{item.name}} | {{item.description}} | {{item.classification.name}} |
+|       }       |
 
 &nbsp;
 
@@ -59,19 +61,4 @@ Name|Description|Classification
   <p>{{item:call:getFindingTarget}}</p>
 
   <h6>Severity</h6>
-  <p>{{item:call:getFindingSeverity}}</p>
-
-  <h6>Example Instances</h6>
-  <p>{{item:call:getFindingExample}}</p>
-
-  <h6>Mitigations</h6>
-  <p>{{item:call:getFindingMitigations}}</p>
-
-  <h6>References</h6>
-  <p>{{item:call:getFindingReferences}}</p>
-
-  &nbsp;
-</details>
-}||
-
-
+  <p>{{item:call:ge

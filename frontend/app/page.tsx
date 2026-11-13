@@ -7,7 +7,7 @@ import { ShieldCheck, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  
+
   // Estados do formulário
   const [login, setLogin] = useState("");
   const [senha, setSenha] = useState("");
@@ -22,7 +22,8 @@ export default function LoginPage() {
 
     try {
       // Fazendo o POST para a rota unificada
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const API_URL =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const response = await fetch(`${API_URL}/api/v1/auth/login`, {
         method: "POST",
         headers: {
@@ -33,8 +34,10 @@ export default function LoginPage() {
       });
 
       if (!response.ok) {
-        if (response.status === 401) throw new Error("Login ou senha incorretos.");
-        if (response.status === 403) throw new Error("Esta conta está desativada.");
+        if (response.status === 401)
+          throw new Error("Login ou senha incorretos.");
+        if (response.status === 403)
+          throw new Error("Esta conta está desativada.");
         throw new Error("Erro ao conectar com o servidor.");
       }
 
@@ -155,7 +158,10 @@ export default function LoginPage() {
           {/* Formulário de Login Híbrido */}
           <form onSubmit={handleLogin} className="space-y-4 mb-6">
             <div>
-              <label htmlFor="login" className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label
+                htmlFor="login"
+                className="block text-sm font-semibold text-slate-700 mb-1.5"
+              >
                 Matrícula, E-mail ou Login
               </label>
               <input
@@ -172,10 +178,16 @@ export default function LoginPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="senha" className="block text-sm font-semibold text-slate-700">
+                <label
+                  htmlFor="senha"
+                  className="block text-sm font-semibold text-slate-700"
+                >
                   Senha
                 </label>
-                <a href="#" className="text-xs font-semibold text-primary-600 hover:text-primary-700">
+                <a
+                  href="#"
+                  className="text-xs font-semibold text-primary-600 hover:text-primary-700"
+                >
                   Esqueceu a senha?
                 </a>
               </div>
@@ -195,7 +207,11 @@ export default function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
