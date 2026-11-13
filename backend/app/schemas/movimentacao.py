@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.enums import LocalAcesso, SentidoMovimentacao
+from app.models.enums import LocalAcesso, SentidoMovimentacao, TipoVinculo
 
 
 class MovimentacaoBase(BaseModel):
@@ -26,6 +26,27 @@ class MovimentacaoResponse(MovimentacaoBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PessoaMovimentacaoResponse(MovimentacaoBase):
+    """Histórico simplificado visível ao titular, sem expor dados do operador."""
+
+    id: int
+    data_hora: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MovimentacaoHistoricoItem(MovimentacaoBase):
+    """Registro recente exibido ao porteiro, focado em identidade e vínculo."""
+
+    id: int
+    pessoa_id: int
+    data_hora: datetime
+    pessoa_nome: str
+    pessoa_tipo_vinculo: Optional[TipoVinculo] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ScanRequest(BaseModel):
     qr_code_hash: str
     local_acesso: LocalAcesso
@@ -34,6 +55,7 @@ class ScanRequest(BaseModel):
 class ScanResponse(BaseModel):
     student_name: str
     student_photo_url: Optional[str] = None
+    student_tipo_vinculo: Optional[TipoVinculo] = None
     movement_type: SentidoMovimentacao
     local_acesso: LocalAcesso
     status: bool
