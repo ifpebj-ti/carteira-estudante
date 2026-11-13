@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { ShieldCheck, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { getApiBaseUrl, resolveHomeRoute } from "@/services/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,8 +23,7 @@ export default function LoginPage() {
 
     try {
       // Fazendo o POST para a rota unificada
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const API_URL = getApiBaseUrl();
       const response = await fetch(`${API_URL}/api/v1/auth/login`, {
         method: "POST",
         headers: {
@@ -43,16 +43,18 @@ export default function LoginPage() {
 
       const data = await response.json();
 
-      // Roteamento inteligente baseado no tipo de conta
-      if (data.account_type === "operador") {
-        router.push("/admin/dashboard");
-      } else if (data.account_type === "pessoa") {
-        router.push("/mobile/aluno");
-      } else {
-        throw new Error("Tipo de conta não reconhecido pelo sistema.");
+      // Roteamento inteligente baseado no tipo de conta e papel
+      const targetRoute = resolveHomeRoute(data.account_type, data.role);
+      if (!targetRoute) {
+        throw new Error(
+          "Tipo de conta ou perfil não reconhecido pelo sistema."
+        );
       }
-    } catch (err: any) {
-      setError(err.message || "Ocorreu um erro inesperado.");
+      router.push(targetRoute);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Ocorreu um erro inesperado."
+      );
     } finally {
       setLoading(false);
     }
@@ -170,7 +172,7 @@ export default function LoginPage() {
                 required
                 value={login}
                 onChange={(e) => setLogin(e.target.value)}
-                placeholder="Ex: 20241EWBJ0999"
+                placeholder="Ex: matricula ou usuario@ifpe.edu.br"
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-colors"
                 disabled={loading}
               />
@@ -243,7 +245,7 @@ export default function LoginPage() {
 
           {/* Botão de Login com o Google */}
           <a
-            href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/login/google`}
+            href={`${getApiBaseUrl()}/api/v1/auth/login/google`}
             className="w-full relative flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:border-primary-500 hover:bg-slate-50 text-slate-800 font-bold text-sm py-3.5 px-4 rounded-xl transition-all duration-200 active:scale-[0.98] shadow-sm cursor-pointer"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">

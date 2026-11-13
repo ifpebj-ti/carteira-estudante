@@ -2,6 +2,7 @@
 
 import React from "react";
 import { LogOut } from "lucide-react";
+import { getApiBaseUrl } from "@/services/auth";
 
 export default function MobileLayout({
   children,
@@ -25,7 +26,8 @@ export default function MobileLayout({
 
           {/* Botão de Logout Direto (Sem dropdown) */}
           <a
-            href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/logout`}
+            href={`${getApiBaseUrl()}/api/v1/auth/logout`}
+            onClick={() => localStorage.removeItem("token")}
             className="p-2 text-rose-600 hover:bg-rose-100 hover:text-rose-700 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
             title="Sair da conta"
           >
