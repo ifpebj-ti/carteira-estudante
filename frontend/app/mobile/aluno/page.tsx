@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { useState, useEffect, useCallback } from "react";
 import {
   FileText,
   ArrowUpRight,
@@ -15,16 +13,21 @@ import {
   Loader2,
   AlertCircle,
   CreditCard,
-  LogOut,
+  Maximize2,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { getApiBaseUrl, performLogout } from "@/services/auth";
+import { formatLocalAcesso, formatVinculoLabel } from "@/services/labels";
+import { PessoaPhoto } from "@/components/ui/PessoaPhoto";
 
 // --- INTERFACES ---
 interface Movimentacao {
   id: number;
   tipo: string;
+  local_acesso?: string;
   data_hora: string;
-  operador_nome: string;
 }
 
 interface Aluno {
@@ -32,6 +35,7 @@ interface Aluno {
   matricula: string;
   nome: string;
   cpf?: string;
+  tipo_vinculo?: string;
   curso?: string;
   modalidade?: string;
   status_matricula?: string;
@@ -40,6 +44,8 @@ interface Aluno {
   foto_url?: string;
   status: boolean;
   qr_code_hash?: string;
+  qr_token?: string;
+  qr_expires_in?: number;
   movimentacoes?: Movimentacao[];
 }
 
@@ -50,47 +56,129 @@ function formatarCPF(cpf?: string): string {
   return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
 }
 
+interface FetchPessoaMeResult {
+  aluno: Aluno | null;
+  errorMessage?: string;
+  unauthorized?: boolean;
+}
+
+async function fetchPessoaMe(): Promise<FetchPessoaMeResult> {
+  const API_URL = getApiBaseUrl();
+  // Rota /me reconhece o titular automaticamente pelo cookie de sessão
+  const res = await fetch(`${API_URL}/api/v1/auth/pessoa/me`, {
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (res.status === 401) {
+    return { aluno: null, unauthorized: true };
+  }
+
+  if (res.status === 403) {
+    return {
+      aluno: null,
+      errorMessage: "Esta carteira digital está desativada ou sem permissão.",
+    };
+  }
+
+  if (!res.ok) {
+    throw new Error("Erro ao carregar sua carteira digital.");
+  }
+
+  const data = (await res.json()) as Aluno;
+  return { aluno: data };
+}
+
 export default function MobileAlunoPage() {
-  const router = useRouter();
   const [aluno, setAluno] = useState<Aluno | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [atualizandoHistorico, setAtualizandoHistorico] = useState(false);
   const [erro, setErro] = useState("");
+  const [isQrExpanded, setIsQrExpanded] = useState(false);
+
+  const applyProfileResult = useCallback(
+    (result: FetchPessoaMeResult, showInitialError: boolean) => {
+      if (result.unauthorized) {
+        performLogout();
+        return;
+      }
+      if (result.errorMessage) {
+        if (showInitialError) {
+          setErro(result.errorMessage);
+        }
+        return;
+      }
+      if (result.aluno) {
+        setAluno(result.aluno);
+      }
+    },
+    []
+  );
+
+  const refreshProfile = useCallback(
+    async (showInitialError: boolean) => {
+      try {
+        const result = await fetchPessoaMe();
+        applyProfileResult(result, showInitialError);
+      } catch (err) {
+        if (showInitialError) {
+          setErro(
+            err instanceof Error
+              ? err.message
+              : "Erro de conexão com o servidor."
+          );
+        }
+      } finally {
+        if (showInitialError) {
+          setCarregando(false);
+        }
+      }
+    },
+    [applyProfileResult]
+  );
+
+  const handleManualRefresh = async () => {
+    setAtualizandoHistorico(true);
+    try {
+      await refreshProfile(false);
+    } finally {
+      setAtualizandoHistorico(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isQrExpanded) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsQrExpanded(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isQrExpanded]);
 
   useEffect(() => {
     let isMounted = true;
 
-    const fetchMeusDados = async () => {
-      setCarregando(true);
-      setErro("");
+    const loadInitialProfile = async () => {
       try {
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        // Rota /me reconhece o aluno automaticamente pelo cookie de sessão
-        const res = await fetch(`${API_URL}/api/v1/auth/pessoa/me`, {
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-          },
-        });
-
-        if (res.status === 401 || res.status === 403) {
-          router.push("/"); // Volta para o login se o cookie for inválido
-          return;
-        }
-
-        if (!res.ok) {
-          throw new Error("Erro ao carregar sua carteira digital.");
-        }
-
-        const data = await res.json();
-
+        const result = await fetchPessoaMe();
         if (isMounted) {
-          setAluno(data);
+          applyProfileResult(result, true);
         }
       } catch (err) {
         if (isMounted) {
-          const errorObject = err as Error;
-          setErro(errorObject.message || "Erro de conexão com o servidor.");
+          setErro(
+            err instanceof Error
+              ? err.message
+              : "Erro de conexão com o servidor."
+          );
         }
       } finally {
         if (isMounted) {
@@ -99,21 +187,40 @@ export default function MobileAlunoPage() {
       }
     };
 
-    fetchMeusDados();
+    void loadInitialProfile();
 
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        void refreshProfile(false);
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
     return () => {
       isMounted = false;
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
     };
-  }, [router]);
+  }, [applyProfileResult, refreshProfile]);
 
-  const handleLogout = async () => {
-    // Aqui você pode adicionar a chamada para a rota de logout no backend, se existir
-    router.push("/");
-  };
+  const qrExpiresIn = aluno?.qr_expires_in;
+  useEffect(() => {
+    if (!qrExpiresIn) return;
+
+    const refreshDelayMs = Math.max(qrExpiresIn - 30, 30) * 1000;
+    const intervalId = setInterval(() => {
+      void refreshProfile(false);
+    }, refreshDelayMs);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [qrExpiresIn, refreshProfile]);
 
   if (carregando) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-slate-500 bg-slate-50">
+      <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center gap-4 text-slate-500 p-4">
         <Loader2 className="w-8 h-8 text-primary-600 animate-spin" />
         <p className="font-medium text-sm">Carregando credenciais...</p>
       </div>
@@ -122,7 +229,7 @@ export default function MobileAlunoPage() {
 
   if (erro || !aluno) {
     return (
-      <div className="min-h-screen p-4 flex items-center justify-center bg-slate-50">
+      <div className="flex-1 min-h-[60vh] p-4 flex items-center justify-center">
         <div className="bg-white border border-rose-200 rounded-2xl p-6 flex flex-col items-center text-center gap-4 shadow-sm w-full max-w-sm">
           <AlertCircle className="w-10 h-10 text-rose-500" />
           <div>
@@ -132,8 +239,9 @@ export default function MobileAlunoPage() {
             <p className="text-sm text-slate-600 mb-4">{erro}</p>
           </div>
           <button
-            onClick={() => router.push("/")}
-            className="w-full px-5 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
+            type="button"
+            onClick={performLogout}
+            className="w-full px-5 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm cursor-pointer"
           >
             Voltar ao Login
           </button>
@@ -142,40 +250,10 @@ export default function MobileAlunoPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 flex flex-col space-y-6 max-w-lg mx-auto">
-      {/* Cabeçalho Mobile */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-        <div className="flex items-center gap-3">
-          <div className="relative w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center overflow-hidden shrink-0">
-            <Image
-              src={
-                aluno.foto_url ||
-                "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&q=80"
-              }
-              alt={aluno.nome}
-              fill
-              sizes="48px"
-              className="object-cover"
-            />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold text-slate-900 line-clamp-1">
-              {aluno.nome}
-            </h1>
-            <p className="text-xs text-slate-500 font-mono">
-              {aluno.matricula}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
-      </div>
+  const qrValue = aluno.qr_token || aluno.qr_code_hash || aluno.matricula;
 
+  return (
+    <div className="p-4 pb-8 flex flex-col space-y-5">
       {/* Carteira Digital Visual */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 relative overflow-hidden">
         <div className="flex justify-between items-center mb-4">
@@ -205,43 +283,49 @@ export default function MobileAlunoPage() {
           </div>
 
           <div className="p-5 flex gap-4">
-            <div className="relative w-16 h-20 bg-white/10 rounded-lg shrink-0 overflow-hidden border border-white/20">
-              <Image
-                src={
-                  aluno.foto_url ||
-                  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&q=80"
-                }
-                alt="Foto do aluno"
-                fill
-                className="object-cover"
+            <div className="relative w-16 h-20 bg-white/10 rounded-lg shrink-0 overflow-hidden border border-white/20 flex items-center justify-center">
+              <PessoaPhoto
+                src={aluno.foto_url}
+                alt={aluno.nome}
+                sizes="64px"
+                iconClassName="w-7 h-7 text-primary-200"
               />
             </div>
             <div className="flex flex-col justify-center">
               <p className="text-[10px] text-primary-300 font-semibold uppercase mb-0.5">
-                Estudante
+                {formatVinculoLabel(aluno.tipo_vinculo || "ALUNO")}
               </p>
               <p className="text-sm font-bold text-white leading-tight mb-2 line-clamp-2">
                 {aluno.nome.toUpperCase()}
               </p>
               <p className="text-[10px] text-primary-300 font-semibold uppercase mb-0.5">
-                Curso
+                {aluno.tipo_vinculo && aluno.tipo_vinculo !== "ALUNO"
+                  ? "Vínculo"
+                  : "Curso"}
               </p>
               <p className="text-[11px] font-semibold text-white/90 leading-tight line-clamp-1">
-                {aluno.curso || "Não informado"}
+                {aluno.curso ||
+                  (aluno.tipo_vinculo && aluno.tipo_vinculo !== "ALUNO"
+                    ? "IFPE Belo Jardim"
+                    : "Não informado")}
               </p>
             </div>
           </div>
 
-          <div className="px-5 pb-5 flex items-end justify-between">
-            <div className="bg-white p-1.5 rounded-lg shrink-0 shadow-sm">
-              <QRCodeSVG
-                value={aluno.qr_code_hash || aluno.matricula}
-                size={50}
-              />
-            </div>
+          <div className="px-5 pb-5 flex items-end justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setIsQrExpanded(true)}
+              aria-label="Ampliar QR Code para leitura"
+              className="bg-white p-2 rounded-xl shrink-0 shadow-sm hover:scale-[1.02] transition-transform cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/80"
+            >
+              <QRCodeSVG value={qrValue} size={108} level="L" marginSize={2} />
+            </button>
             <div className="text-right">
               <p className="text-[9px] text-primary-300 uppercase font-semibold">
-                Matrícula
+                {aluno.tipo_vinculo && aluno.tipo_vinculo !== "ALUNO"
+                  ? "Identificação"
+                  : "Matrícula"}
               </p>
               <p className="text-xs text-white font-bold font-mono tracking-wider">
                 {aluno.matricula}
@@ -250,10 +334,58 @@ export default function MobileAlunoPage() {
           </div>
         </div>
 
-        <button className="w-full mt-4 py-3 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-xl text-sm flex items-center justify-center gap-2 transition-colors">
-          <Download className="w-4 h-4" /> Salvar Offline
-        </button>
+        <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={() => setIsQrExpanded(true)}
+            className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+          >
+            <Maximize2 className="w-4 h-4" /> Ampliar QR
+          </button>
+          <button
+            type="button"
+            className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+          >
+            <Download className="w-4 h-4" /> Salvar Offline
+          </button>
+        </div>
       </div>
+
+      {isQrExpanded && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="QR Code Ampliado"
+          onClick={() => setIsQrExpanded(false)}
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-sm w-full flex flex-col items-center text-center shadow-2xl border border-slate-200 relative"
+          >
+            <button
+              type="button"
+              onClick={() => setIsQrExpanded(false)}
+              aria-label="Fechar QR Code ampliado"
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-base font-bold text-slate-900">
+              Apresente na Portaria
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 mb-4">
+              {aluno.nome} &bull; {aluno.matricula}
+            </p>
+            <div className="bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-inner">
+              <QRCodeSVG value={qrValue} size={225} level="L" marginSize={2} />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-4">
+              QR Code dinâmico renovado automaticamente
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Informações Detalhadas */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
@@ -272,10 +404,16 @@ export default function MobileAlunoPage() {
           </div>
           <div className="flex flex-col border-b border-slate-100 pb-3">
             <span className="text-[11px] font-semibold text-slate-400 uppercase flex items-center gap-1.5">
-              <LayoutDashboard className="w-3.5 h-3.5" /> Modalidade
+              <LayoutDashboard className="w-3.5 h-3.5" />{" "}
+              {aluno.tipo_vinculo && aluno.tipo_vinculo !== "ALUNO"
+                ? "Categoria"
+                : "Modalidade"}
             </span>
             <span className="text-sm font-medium text-slate-900 mt-0.5">
-              {aluno.modalidade || "Presencial"}
+              {aluno.modalidade ||
+                (aluno.tipo_vinculo && aluno.tipo_vinculo !== "ALUNO"
+                  ? formatVinculoLabel(aluno.tipo_vinculo)
+                  : "Presencial")}
             </span>
           </div>
           <div className="flex flex-col">
@@ -291,9 +429,23 @@ export default function MobileAlunoPage() {
 
       {/* Histórico de Acessos Recentes */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-        <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-slate-500" /> Acessos Recentes
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-slate-500" /> Acessos Recentes
+          </h2>
+          <button
+            type="button"
+            onClick={() => void handleManualRefresh()}
+            disabled={atualizandoHistorico}
+            aria-label="Atualizar acessos recentes"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${atualizandoHistorico ? "animate-spin" : ""}`}
+            />
+            Atualizar
+          </button>
+        </div>
 
         <div className="space-y-3">
           {!aluno.movimentacoes || aluno.movimentacoes.length === 0 ? (
@@ -321,12 +473,14 @@ export default function MobileAlunoPage() {
                       {mov.tipo === "ENTRADA" ? "Entrada" : "Saída"}
                     </span>
                     <span className="text-[10px] text-slate-500">
-                      {mov.operador_nome || "Catraca"}
+                      {formatLocalAcesso(mov.local_acesso)}
                     </span>
                   </div>
                 </div>
                 <span className="text-xs font-mono text-slate-600">
-                  {new Date(mov.data_hora).toLocaleTimeString("pt-BR", {
+                  {new Date(mov.data_hora).toLocaleString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
