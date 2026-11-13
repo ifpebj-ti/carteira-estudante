@@ -1,6 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+    ],
+  },
   // Security Headers aligned with OWASP guidelines (ai_context_frontend.md)
   async headers() {
     const securityHeaders = [
@@ -29,12 +37,12 @@ const nextConfig = {
         key: "Content-Security-Policy",
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           "font-src 'self' https://fonts.gstatic.com",
           "img-src 'self' data: https://images.unsplash.com https://www.svgrepo.com",
-          "media-src 'self' data:",
-          `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"} https://fastly.jsdelivr.net`,
+          "media-src 'self' data: blob:",
+          `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"} https://fastly.jsdelivr.net https://cdn.jsdelivr.net`,
           "frame-ancestors 'none'",
         ].join("; "),
       },
