@@ -26,11 +26,12 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest==9.2.0",
-    "ruff"
+    "pytest-cov>=7.1.0",
+    "ruff",
 ]
 
 [tool.pytest.ini_options]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --cov=app --cov-report=term-missing"
 testpaths = ["tests"]
 filterwarnings = [
     "ignore::starlette.exceptions.StarletteDeprecationWarning",
