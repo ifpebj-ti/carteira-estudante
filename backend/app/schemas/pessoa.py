@@ -106,5 +106,10 @@ class PessoaResponse(PessoaBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PessoaMeResponse(PessoaResponse):
+    qr_token: str
+    qr_expires_in: int
+
+
 class PessoaDetailResponse(PessoaResponse):
     movimentacoes: List[MovimentacaoResponse] = []

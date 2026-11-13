@@ -6,7 +6,7 @@ from app.api.dependencies.security import get_current_user
 from app.models.enums import PerfilOperador
 from app.models.pessoa import Pessoa
 from app.models.usuario import UsuarioSistema
-from app.schemas.pessoa import PessoaBase
+from app.schemas.pessoa import PessoaBase, PessoaResponse
 
 
 def test_get_pessoa_by_matricula_not_found(client):
@@ -160,3 +160,24 @@ def test_cpf_validator_invalid_first_check_digit():
 def test_cpf_validator_invalid_second_check_digit():
     with pytest.raises(ValidationError, match="segundo dígito verificador"):
         PessoaBase(matricula="20241INBJ0001", nome="Teste", cpf="123.456.700-89")
+
+
+def test_pessoa_response_never_exposes_senha_hash(client, db_session):
+    assert "senha_hash" not in PessoaResponse.model_fields
+
+    pessoa = Pessoa(
+        matricula="20241EWBJ0888",
+        nome="Aluno Privacidade",
+        cpf="52998224725",
+        tipo_vinculo="ALUNO",
+        senha_hash="segredo_hash_super_confidencial",  # noqa: S106
+    )
+    db_session.add(pessoa)
+    db_session.commit()
+    db_session.refresh(pessoa)
+
+    assert "senha_hash" not in PessoaResponse.model_validate(pessoa).model_dump()
+
+    response = client.get("/api/v1/pessoas/20241EWBJ0888")
+    assert response.status_code == status.HTTP_200_OK
+    assert "senha_hash" not in response.json()

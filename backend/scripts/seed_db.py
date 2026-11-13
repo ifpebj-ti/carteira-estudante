@@ -134,7 +134,7 @@ def seed():
         pessoas_seed = [
             # --- Contas de Teste Oficiais (todos os TipoVinculo) ---
             {
-                "nome": "Aluno Teste (Avaliação)",
+                "nome": "Professor Avaliador (Aluno)",
                 "matricula": "20241EWBJ0999",
                 "cpf_idx": 100,
                 "tipo_vinculo": TipoVinculo.ALUNO,
@@ -144,6 +144,7 @@ def seed():
                 "status_matricula": "Ativo",
                 "is_interno": False,
                 "email": "aluno_teste@discente.ifpe.edu.br",
+                "senha_hash": default_password_hash,
                 "foto_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
                 "status": True,
             },
@@ -158,6 +159,7 @@ def seed():
                 "status_matricula": "Ativo",
                 "is_interno": False,
                 "email": "professor_teste@belojardim.ifpe.edu.br",
+                "senha_hash": default_password_hash,
                 "foto_url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200",
                 "status": True,
             },
@@ -172,6 +174,7 @@ def seed():
                 "status_matricula": "Ativo",
                 "is_interno": False,
                 "email": "servidor_teste@belojardim.ifpe.edu.br",
+                "senha_hash": default_password_hash,
                 "foto_url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200",
                 "status": True,
             },
@@ -186,6 +189,7 @@ def seed():
                 "status_matricula": "Ativo",
                 "is_interno": False,
                 "email": "coordenacao_teste@belojardim.ifpe.edu.br",
+                "senha_hash": default_password_hash,
                 "foto_url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200",
                 "status": True,
             },

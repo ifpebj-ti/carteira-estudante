@@ -8,50 +8,86 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.enums import PerfilOperador
+from app.models.pessoa import Pessoa
 from app.models.usuario import UsuarioSistema
 
 
-def get_current_user(request: Request, db: Session = Depends(get_db)) -> UsuarioSistema:
-    """
-    Extrai e valida o token JWT dos cookies HttpOnly ou do cabeçalho Authorization.
-    Retorna o usuário logado (UsuarioSistema).
-    """
-    token = request.cookies.get("access_token")
+def _extract_token(request: Request) -> str:
+    """Extrai o token JWT do cabeçalho Authorization Bearer ou cookie HttpOnly."""
+    token: Optional[str] = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        bearer_token = auth_header.removeprefix("Bearer ").strip()
+        if bearer_token:
+            token = bearer_token
+
     if not token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            bearer_token = auth_header.removeprefix("Bearer ").strip()
-            if bearer_token:
-                token = bearer_token
+        token = request.cookies.get("access_token")
 
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Não autenticado. Faça login para acessar este recurso.",
         )
+    return token
 
+
+def _decode_token_payload(request: Request) -> tuple[dict, int]:
+    """Decodifica o JWT da requisição e retorna (payload, subject_id)."""
+    token = _extract_token(request)
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-        user_id: Optional[str] = payload.get("sub")
-        if user_id is None:
+        subject_id: Optional[str] = payload.get("sub")
+        if subject_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Credenciais inválidas.",
             )
+        parsed_id = int(subject_id)
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expirado.",
         )
-    except jwt.InvalidTokenError:
+    except (jwt.InvalidTokenError, ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido.",
+        )
+    return payload, parsed_id
+
+
+def get_current_user(request: Request, db: Session = Depends(get_db)) -> UsuarioSistema:
+    """
+    Extrai e valida o token JWT de operador dos cookies ou cabeçalho Authorization.
+    Retorna o usuário operador logado (UsuarioSistema).
+    """
+    payload, user_id = _decode_token_payload(request)
+    account_type = payload.get("account_type")
+    if account_type == "pessoa":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: privilégios insuficientes",
+        )
+    if account_type not in (None, "operador"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido.",
+        )
+    # Impede que tokens sem escopo de operador (ex.: token do QR Code) passem aqui
+    if account_type is None and not (payload.get("role") or payload.get("perfil")):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido.",
         )
 
-    usuario = db.query(UsuarioSistema).filter(UsuarioSistema.id == int(user_id)).first()
+    usuario = (
+        db.query(UsuarioSistema)
+        .filter(UsuarioSistema.id == user_id, UsuarioSistema.deleted_at.is_(None))
+        .first()
+    )
     if not usuario:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -64,6 +100,45 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Usuario
         )
 
     return usuario
+
+
+def get_current_pessoa(request: Request, db: Session = Depends(get_db)) -> Pessoa:
+    """
+    Extrai e valida o token JWT de conta institucional (Pessoa).
+    Retorna o titular autenticado (ALUNO, PROFESSOR, SERVIDOR ou COORDENACAO).
+    """
+    payload, pessoa_id = _decode_token_payload(request)
+    account_type = payload.get("account_type")
+    if account_type == "operador" or (
+        account_type is None and (payload.get("role") or payload.get("perfil"))
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso restrito a titulares da carteira.",
+        )
+    if account_type != "pessoa":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido.",
+        )
+
+    pessoa = (
+        db.query(Pessoa)
+        .filter(Pessoa.id == pessoa_id, Pessoa.deleted_at.is_(None))
+        .first()
+    )
+    if not pessoa:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Titular não encontrado.",
+        )
+    if not pessoa.status:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Carteira digital inativa.",
+        )
+
+    return pessoa
 
 
 class RoleChecker:
