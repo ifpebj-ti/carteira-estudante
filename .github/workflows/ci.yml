@@ -34,8 +34,11 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ./backend
+          pull: true
           load: true
           tags: carteira-estudante-backend:latest,carteira-backend:latest
+          build-args: |
+            CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=${{ github.workflow }}-backend-trivy
           cache-to: type=gha,mode=max,scope=${{ github.workflow }}-backend-trivy
 
@@ -49,7 +52,7 @@ jobs:
         run: docker compose exec backend ruff check .
 
       - name: SAST - Segurança Estática (Bandit)
-        run: docker compose exec backend sh -c "pip install bandit && bandit -r app/ -ll -ii"
+        run: docker compose exec backend bandit -r app/ -ll -ii
 
       - name: Configura Node.js e Cache NPM
         uses: actions/setup-node@v7
@@ -110,9 +113,12 @@ jobs:
         with:
           context: ./backend
           platforms: linux/amd64,linux/arm64
+          pull: true
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=${{ github.workflow }}-backend-push
           cache-to: type=gha,mode=max,scope=${{ github.workflow }}-backend-push
 
@@ -131,10 +137,12 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ./frontend
+          pull: true
           load: true
           tags: carteira-frontend:latest
           build-args: |
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=${{ github.workflow }}-frontend-trivy
           cache-to: type=gha,mode=max,scope=${{ github.workflow }}-frontend-trivy
 
@@ -153,11 +161,13 @@ jobs:
         with:
           context: ./frontend
           platforms: linux/amd64,linux/arm64
+          pull: true
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
           build-args: |
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=${{ github.workflow }}-frontend-push
           cache-to: type=gha,mode=max,scope=${{ github.workflow }}-frontend-push
 

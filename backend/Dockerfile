@@ -33,10 +33,19 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+# Permite invalidar apenas a camada de patches do SO em builds com cache (ex.: CI)
+ARG CACHE_BUSTER=""
+
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     libpq5 \
     && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /usr/local/lib/python3.11/site-packages/setuptools* /usr/local/lib/python3.11/site-packages/pkg_resources*
+    && rm -rf \
+       /usr/local/bin/pip* \
+       /usr/local/lib/python3.11/ensurepip/_bundled/* \
+       /usr/local/lib/python3.11/site-packages/pip* \
+       /usr/local/lib/python3.11/site-packages/setuptools* \
+       /usr/local/lib/python3.11/site-packages/pkg_resources* \
+       /usr/local/lib/python3.11/site-packages/wheel*
 
 COPY --from=builder /opt/venv /opt/venv
 
