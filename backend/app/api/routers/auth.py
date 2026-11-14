@@ -69,7 +69,7 @@ def _set_auth_cookie(response: Response, access_token: str) -> None:
         httponly=True,
         secure=settings.ENVIRONMENT == "production",
         samesite="lax",
-        domain=settings.COOKIE_DOMAIN,               
+        domain=settings.COOKIE_DOMAIN,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
