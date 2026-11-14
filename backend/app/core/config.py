@@ -4,10 +4,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str = "API - Carteira Estudantil IFPE"
     API_V1_STR: str = "/api/v1"
-
+    
+    ENVIRONMENT: str = "development"
+    
     DATABASE_URL: str
     SECRET_KEY: str
     FRONTEND_URL: str = "http://localhost:3000"
+    
+    COOKIE_DOMAIN: str | None = None
 
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
