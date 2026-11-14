@@ -234,6 +234,10 @@ async def login_google(request: Request):
     """
     # redirect_uri deve ser a rota callback do nosso próprio backend
     redirect_uri = request.url_for("auth_callback")
+    
+    if settings.ENVIRONMENT == "production":
+        redirect_url = redirect_url.replace(scheme="https")
+
     return await oauth.google.authorize_redirect(
         request, redirect_uri, prompt="select_account"
     )
