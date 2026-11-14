@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getApiBaseUrl, performLogout } from "@/services/auth";
+import { formatVinculoLabel } from "@/services/labels";
 import {
   Users,
   Activity,
@@ -15,8 +17,9 @@ interface Movimentacao {
   id: number;
   tipo: string;
   data_hora: string;
+  operador_nome?: string | null;
   pessoa_nome?: string;
-  pessoa?: { nome: string };
+  pessoa?: { nome: string; tipo_vinculo?: string | null };
 }
 
 export default function DashboardPage() {
@@ -39,15 +42,21 @@ export default function DashboardPage() {
       try {
         setCarregando(true);
 
+        const apiBaseUrl = getApiBaseUrl();
+
         // 1. Pega a lista básica de todos os alunos (sem movimentações)
-        const resAlunos = await fetch("http://localhost:8000/api/v1/pessoas", {
+        const resAlunos = await fetch(`${apiBaseUrl}/api/v1/pessoas`, {
           credentials: "include",
           headers: { Accept: "application/json" },
         });
 
         if (resAlunos.status === 401) {
-          window.location.href = "http://localhost:3000/";
+          performLogout();
           return;
+        }
+
+        if (resAlunos.status === 403) {
+          throw new Error("Permissão negada para acessar os dados do painel.");
         }
 
         if (!resAlunos.ok)
@@ -64,39 +73,47 @@ export default function DashboardPage() {
           let todasMovimentacoes: Movimentacao[] = [];
 
           // 2. Faz uma requisição detalhada para CADA aluno para pegar o histórico
-          const promessasDetalhes = listaBasica.map(async (alunoBasico) => {
-            try {
-              const resDetalhe = await fetch(
-                `http://localhost:8000/api/v1/pessoas/${alunoBasico.matricula}`,
-                {
-                  credentials: "include",
-                  headers: { Accept: "application/json" },
-                }
-              );
+          const promessasDetalhes = listaBasica.map(
+            async (alunoBasico: { matricula: string }) => {
+              try {
+                const resDetalhe = await fetch(
+                  `${apiBaseUrl}/api/v1/pessoas/${alunoBasico.matricula}`,
+                  {
+                    credentials: "include",
+                    headers: { Accept: "application/json" },
+                  }
+                );
 
-              if (resDetalhe.ok) {
-                const alunoDetalhado = await resDetalhe.json();
+                if (resDetalhe.ok) {
+                  const alunoDetalhado = await resDetalhe.json();
 
-                if (
-                  alunoDetalhado.movimentacoes &&
-                  Array.isArray(alunoDetalhado.movimentacoes)
-                ) {
-                  const movsDoAluno = alunoDetalhado.movimentacoes.map(
-                    (m: any) => ({
-                      ...m,
-                      pessoa: { nome: alunoDetalhado.nome },
-                    })
-                  );
-                  todasMovimentacoes = [...todasMovimentacoes, ...movsDoAluno];
+                  if (
+                    alunoDetalhado.movimentacoes &&
+                    Array.isArray(alunoDetalhado.movimentacoes)
+                  ) {
+                    const movsDoAluno = alunoDetalhado.movimentacoes.map(
+                      (m: Movimentacao) => ({
+                        ...m,
+                        pessoa: {
+                          nome: alunoDetalhado.nome,
+                          tipo_vinculo: alunoDetalhado.tipo_vinculo,
+                        },
+                      })
+                    );
+                    todasMovimentacoes = [
+                      ...todasMovimentacoes,
+                      ...movsDoAluno,
+                    ];
+                  }
                 }
+              } catch (err) {
+                console.error(
+                  `Erro ao buscar detalhes do aluno ${alunoBasico.matricula}`,
+                  err
+                );
               }
-            } catch (err) {
-              console.error(
-                `Erro ao buscar detalhes do aluno ${alunoBasico.matricula}`,
-                err
-              );
             }
-          });
+          );
 
           // Espera que todas as requisições detalhadas terminem
           await Promise.all(promessasDetalhes);
@@ -273,11 +290,12 @@ export default function DashboardPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[600px]">
+          <table className="w-full text-left border-collapse min-w-[650px]">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                <th className="py-3.5 px-6">Nome do Aluno</th>
+                <th className="py-3.5 px-6">Titular</th>
                 <th className="py-3.5 px-6">Tipo</th>
+                <th className="py-3.5 px-6">Operador</th>
                 <th className="py-3.5 px-6">Data</th>
                 <th className="py-3.5 px-6">Horário</th>
               </tr>
@@ -285,7 +303,7 @@ export default function DashboardPage() {
             <tbody className="divide-y divide-slate-100 text-sm">
               {erro ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-rose-500">
+                  <td colSpan={5} className="py-8 text-center text-rose-500">
                     <AlertCircle className="w-6 h-6 mx-auto mb-2" />
                     <p className="font-semibold">
                       Erro ao carregar movimentações
@@ -295,7 +313,7 @@ export default function DashboardPage() {
                 </tr>
               ) : carregando ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-slate-500">
+                  <td colSpan={5} className="py-8 text-center text-slate-500">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-600 mb-2" />
                     Buscando dados no servidor...
                   </td>
@@ -309,11 +327,22 @@ export default function DashboardPage() {
                       key={mov.id}
                       className="hover:bg-slate-50/50 transition-colors"
                     >
-                      <td className="py-3.5 px-6 font-medium text-slate-900 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0 uppercase">
-                          {nomeExibicao.charAt(0)}
+                      <td className="py-3.5 px-6 font-medium text-slate-900">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0 uppercase">
+                            {nomeExibicao.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-900">
+                              {nomeExibicao}
+                            </p>
+                            {mov.pessoa?.tipo_vinculo && (
+                              <p className="text-[11px] font-semibold text-slate-500">
+                                {formatVinculoLabel(mov.pessoa.tipo_vinculo)}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        {nomeExibicao}
                       </td>
                       <td className="py-3.5 px-6">
                         <span
@@ -326,6 +355,9 @@ export default function DashboardPage() {
                           {mov.tipo === "ENTRADA" ? "Entrada" : "Saída"}
                         </span>
                       </td>
+                      <td className="py-3.5 px-6 text-slate-600 text-xs">
+                        {mov.operador_nome || "Catraca Automática"}
+                      </td>
                       <td className="py-3.5 px-6 text-slate-600">
                         {formatarData(mov.data_hora)}
                       </td>
@@ -337,7 +369,7 @@ export default function DashboardPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-slate-500">
+                  <td colSpan={5} className="py-8 text-center text-slate-500">
                     Nenhuma movimentação registrada recentemente.
                   </td>
                 </tr>

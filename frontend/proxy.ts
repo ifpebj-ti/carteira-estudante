@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  decodeJwtPayload,
+  getEffectiveRole,
+  isOperatorSession,
+  resolveHomeRoute,
+} from "@/services/auth";
 
 // Routes that don't require authentication
-const publicRoutes = [
-  "/",
-  "/admin",
-  "/admin/movimentacoes",
-  "/admin/editar",
-  "/admin/alunos",
-  "/admin/aluno",
-  "/mobile/carteira",
-  "/mobile/leitor",
-];
+const publicRoutes = ["/", "/mobile/carteira"];
+
+function redirectWithClearedCookie(url: URL) {
+  const response = NextResponse.redirect(url);
+  response.cookies.delete("access_token");
+  return response;
+}
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -27,23 +30,51 @@ export function proxy(request: NextRequest) {
   }
 
   // The backend (FastAPI) sets an HttpOnly cookie named "access_token" on login.
-  // We check for its presence to determine authentication status.
   const token = request.cookies.get("access_token")?.value;
-
   const isPublicRoute = publicRoutes.includes(pathname);
 
-  // If trying to access a protected route without a token → redirect to login
-  if (!token && !isPublicRoute) {
-    const loginUrl = new URL("/", request.url);
-    return NextResponse.redirect(loginUrl);
+  if (!token) {
+    if (!isPublicRoute) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    return NextResponse.next();
   }
 
-  // If already authenticated and trying to access the login page → redirect to dashboard
-  if (token && pathname === "/") {
-    // TODO: Decode JWT role claim and route to the correct dashboard
-    // For now, default to /aluno
-    const dashboardUrl = new URL("/admin", request.url);
-    return NextResponse.redirect(dashboardUrl);
+  const payload = decodeJwtPayload(token);
+  const homeRoute = payload
+    ? resolveHomeRoute(payload.account_type, getEffectiveRole(payload))
+    : null;
+
+  if (!payload || !homeRoute) {
+    if (!isPublicRoute) {
+      return redirectWithClearedCookie(new URL("/", request.url));
+    }
+    const response = NextResponse.next();
+    response.cookies.delete("access_token");
+    return response;
+  }
+
+  // If already authenticated and trying to access the login page → redirect to role home
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL(homeRoute, request.url));
+  }
+
+  const role = getEffectiveRole(payload)?.toUpperCase();
+  const isOperator = isOperatorSession(payload);
+
+  if (pathname.startsWith("/admin") && !(isOperator && role === "ADMIN")) {
+    return NextResponse.redirect(new URL(homeRoute, request.url));
+  }
+
+  if (pathname.startsWith("/mobile/leitor") && !isOperator) {
+    return NextResponse.redirect(new URL(homeRoute, request.url));
+  }
+
+  if (
+    pathname.startsWith("/mobile/aluno") &&
+    payload.account_type !== "pessoa"
+  ) {
+    return NextResponse.redirect(new URL(homeRoute, request.url));
   }
 
   return NextResponse.next();

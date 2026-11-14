@@ -5,8 +5,8 @@ from app.api.dependencies.security import RoleChecker
 from app.core.database import get_db
 from app.models.enums import PerfilOperador
 from app.models.pessoa import Pessoa
-from app.schemas.movimentacao import MovimentacaoResponse
 from app.schemas.pessoa import PessoaDetailResponse, PessoaResponse, PessoaUpdate
+from app.services.movimentacao_service import build_movimentacao_responses
 
 router = APIRouter(prefix="/pessoas", tags=["Pessoas"])
 
@@ -42,22 +42,7 @@ def get_pessoa_by_matricula(matricula: str, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND, detail="Pessoa não encontrado"
         )
 
-    movs_response = []
-    for mov in pessoa.movimentacoes:
-        operador_nome = mov.operador.nome if mov.operador else "Desconhecido"
-        movs_response.append(
-            MovimentacaoResponse(
-                id=mov.id,
-                pessoa_id=mov.pessoa_id,
-                operador_id=mov.operador_id,
-                tipo=mov.tipo,
-                local_acesso=mov.local_acesso,
-                data_hora=mov.data_hora,
-                operador_nome=operador_nome,
-            )
-        )
-
-    movs_response.sort(key=lambda x: x.data_hora, reverse=True)
+    movs_response = build_movimentacao_responses(pessoa.movimentacoes)
 
     return PessoaDetailResponse(
         id=pessoa.id,

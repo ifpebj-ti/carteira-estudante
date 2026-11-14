@@ -54,3 +54,4 @@ yarn-error.log*
 # AI Context files
 ai_context*.md
 *.tsbuildinfo
+frontend/public/wasm/

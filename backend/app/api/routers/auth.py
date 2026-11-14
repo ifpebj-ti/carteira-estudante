@@ -22,6 +22,7 @@ from app.models.usuario import UsuarioSistema
 from app.schemas.auth import LoginRequest, TokenResponse
 from app.schemas.pessoa import PessoaMeResponse, PessoaResponse
 from app.schemas.usuario import UsuarioResponse
+from app.services.movimentacao_service import build_pessoa_movimentacao_responses
 from app.services.qr_crypto_service import generate_qr_token
 
 router = APIRouter(tags=["Auth"])
@@ -305,7 +306,7 @@ async def logout():
     Rota para deslogar o usuário.
     Deleta o cookie 'access_token' e redireciona para a página de login.
     """
-    frontend_url = "http://localhost:3000/"
+    frontend_url = f"{settings.FRONTEND_URL.rstrip('/')}/"
     redirect_resp = RedirectResponse(url=frontend_url)
     redirect_resp.delete_cookie(
         key="access_token",
@@ -338,6 +339,7 @@ def get_pessoa_me(current_pessoa: Pessoa = Depends(get_current_pessoa)):
     base_data = PessoaResponse.model_validate(current_pessoa).model_dump()
     return PessoaMeResponse(
         **base_data,
+        movimentacoes=build_pessoa_movimentacao_responses(current_pessoa.movimentacoes),
         qr_token=generate_qr_token(current_pessoa.id),
         qr_expires_in=settings.QR_CODE_EXPIRE_SECONDS,
     )

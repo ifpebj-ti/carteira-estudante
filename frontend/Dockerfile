@@ -18,9 +18,13 @@ FROM node:26-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-RUN rm -rf /usr/local/lib/node_modules/npm \
-           /usr/local/bin/npm \
-           /usr/local/bin/npx
+# Permite invalidar apenas a camada de patches do SO em builds com cache (ex.: CI)
+ARG CACHE_BUSTER=""
+
+RUN apk update && apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules/npm \
+              /usr/local/bin/npm \
+              /usr/local/bin/npx
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./

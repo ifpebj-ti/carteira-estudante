@@ -628,6 +628,19 @@ def test_pessoa_me_and_token_isolation(client: TestClient, db_session):
     assert scan_resp.status_code == status.HTTP_200_OK
     assert scan_resp.json()["status"] is True
 
+    # Histórico do titular atualizado é retornado em /pessoa/me
+    me_after_scan = client.get(
+        "/api/v1/auth/pessoa/me",
+        headers={"Authorization": f"Bearer {pessoa_token}"},
+    )
+    assert me_after_scan.status_code == status.HTTP_200_OK
+    movs = me_after_scan.json()["movimentacoes"]
+    assert len(movs) == 1
+    assert movs[0]["tipo"] == "ENTRADA"
+    assert movs[0]["local_acesso"] == "PORTARIA"
+    assert "operador_nome" not in movs[0]
+    assert "operador_id" not in movs[0]
+
     # Sessão de titular NÃO funciona como QR code nem em rotas de operador
     with pytest.raises(HTTPException) as qr_exc:
         decode_qr_token(pessoa_token)

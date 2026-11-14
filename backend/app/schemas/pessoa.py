@@ -5,7 +5,10 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.models.enums import ModalidadeEnsino, TipoVinculo
-from app.schemas.movimentacao import MovimentacaoResponse
+from app.schemas.movimentacao import (
+    MovimentacaoResponse,
+    PessoaMovimentacaoResponse,
+)
 
 
 def _validate_cpf_value(v: str) -> str:
@@ -106,10 +109,11 @@ class PessoaResponse(PessoaBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class PessoaMeResponse(PessoaResponse):
-    qr_token: str
-    qr_expires_in: int
-
-
 class PessoaDetailResponse(PessoaResponse):
     movimentacoes: List[MovimentacaoResponse] = []
+
+
+class PessoaMeResponse(PessoaResponse):
+    movimentacoes: List[PessoaMovimentacaoResponse] = []
+    qr_token: str
+    qr_expires_in: int

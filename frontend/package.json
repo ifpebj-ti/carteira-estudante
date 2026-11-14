@@ -5,7 +5,10 @@
     "node": ">=26.0.0"
   },
   "scripts": {
+    "sync-wasm": "node -e \"const fs=require('fs');fs.mkdirSync('public/wasm',{recursive:true});fs.copyFileSync('node_modules/zxing-wasm/dist/reader/zxing_reader.wasm','public/wasm/zxing_reader.wasm')\"",
+    "predev": "npm run sync-wasm",
     "dev": "next dev",
+    "prebuild": "npm run sync-wasm",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
