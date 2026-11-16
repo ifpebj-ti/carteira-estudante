@@ -117,7 +117,7 @@ def get_person_by_matricula(matricula: str, db: Session = Depends(get_db)):
 )
 def update_person(
     matricula: str,
-    pessoa_in: PessoaUpdate,
+    person_in: PessoaUpdate,
     db: Session = Depends(get_db),
 ):
     person = (
@@ -130,7 +130,7 @@ def update_person(
             status_code=status.HTTP_404_NOT_FOUND, detail="Pessoa não encontrado"
         )
 
-    update_data = pessoa_in.model_dump(exclude_unset=True)
+    update_data = person_in.model_dump(exclude_unset=True)
 
     for non_nullable in ("nome", "cpf", "tipo_vinculo"):
         if non_nullable in update_data and update_data[non_nullable] is None:

@@ -139,7 +139,7 @@ def _convert_date(value: object) -> datetime.date | str | None:
     return _clean_text(value)
 
 
-def _build_pessoa_candidate(
+def _build_person_candidate(
     raw_row: dict[str, Any],
     present_columns: set[str],
     row_number: int,
@@ -192,14 +192,14 @@ def _filter_valid_records(people_dataframe: pl.DataFrame) -> list[dict[str, Any]
     records_by_matricula: dict[str, dict[str, Any]] = {}
 
     for row_number, raw_row in enumerate(raw_rows, start=1):
-        candidate = _build_pessoa_candidate(
+        candidate = _build_person_candidate(
             raw_row,
             present_columns,
             row_number,
         )
-        validated_pessoa = PessoaBase(**candidate)
+        validated_person = PessoaBase(**candidate)
         # Keep only uploaded columns so omitted optional fields stay intact on conflict.
-        records_by_matricula[validated_pessoa.matricula] = validated_pessoa.model_dump(
+        records_by_matricula[validated_person.matricula] = validated_person.model_dump(
             include=present_columns
         )
 
