@@ -76,6 +76,7 @@ jobs:
           target: "http://localhost:8000"
           fail_action: true
           allow_issue_writing: false
+          rules_file_name: '.zap/rules.tsv'
 
       - name: Análise de Segurança da Imagem (Trivy - Backend)
         uses: aquasecurity/trivy-action@master
