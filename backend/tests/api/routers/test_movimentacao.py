@@ -21,8 +21,7 @@ def override_get_current_user():
     )
 
 
-def test_scan_qr_code_success(client: TestClient, db_session):
-    # Setup test data
+def _ensure_scan_fixtures(db_session):
     pessoa = db_session.query(Pessoa).filter(Pessoa.id == 1).first()
     if not pessoa:
         pessoa = Pessoa(
@@ -48,17 +47,23 @@ def test_scan_qr_code_success(client: TestClient, db_session):
 
     db_session.commit()
 
+
+def test_scan_qr_code_returns_200_and_creates_movement_for_active_pessoa(
+    client: TestClient, db_session
+):
+    _ensure_scan_fixtures(db_session)
+
     # We generate a valid JWT for Pessoa 1
     token = generate_qr_token(pessoa_id=1)
 
     client.app.dependency_overrides[get_current_user] = override_get_current_user
-
-    response = client.post(
-        "/api/v1/movimentacao/scan",
-        json={"qr_code_hash": token, "local_acesso": "PORTARIA"},
-    )
-
-    client.app.dependency_overrides.clear()
+    try:
+        response = client.post(
+            "/api/v1/movimentacao/scan",
+            json={"qr_code_hash": token, "local_acesso": "PORTARIA"},
+        )
+    finally:
+        client.app.dependency_overrides.clear()
 
     assert response.status_code == 200
     data = response.json()
@@ -73,34 +78,40 @@ def test_scan_qr_code_success(client: TestClient, db_session):
     ]
 
 
-def test_scan_qr_code_invalid_token(client: TestClient):
+def test_scan_qr_code_returns_401_when_qr_token_is_invalid(client: TestClient):
     client.app.dependency_overrides[get_current_user] = override_get_current_user
-    response = client.post(
-        "/api/v1/movimentacao/scan",
-        json={"qr_code_hash": "invalid-token", "local_acesso": "PORTARIA"},
-    )
-    client.app.dependency_overrides.clear()
+    try:
+        response = client.post(
+            "/api/v1/movimentacao/scan",
+            json={"qr_code_hash": "invalid-token", "local_acesso": "PORTARIA"},
+        )
+    finally:
+        client.app.dependency_overrides.clear()
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Forged or invalid QR Code."
 
 
-def test_scan_qr_code_student_not_found(client: TestClient):
+def test_scan_qr_code_returns_404_when_pessoa_does_not_exist(client: TestClient):
     # Generates a valid token for a non-existent student ID (9999)
     token = generate_qr_token(pessoa_id=9999)
 
     client.app.dependency_overrides[get_current_user] = override_get_current_user
-    response = client.post(
-        "/api/v1/movimentacao/scan",
-        json={"qr_code_hash": token, "local_acesso": "PORTARIA"},
-    )
-    client.app.dependency_overrides.clear()
+    try:
+        response = client.post(
+            "/api/v1/movimentacao/scan",
+            json={"qr_code_hash": token, "local_acesso": "PORTARIA"},
+        )
+    finally:
+        client.app.dependency_overrides.clear()
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Pessoa não encontrado."
 
 
-def test_scan_qr_code_inactive_student(client: TestClient, db_session):
+def test_scan_qr_code_returns_200_with_status_false_when_pessoa_is_inactive(
+    client: TestClient, db_session
+):
     pessoa = Pessoa(
         matricula="20241EWBJ0098",
         nome="Inactive Student",
@@ -131,13 +142,17 @@ def test_scan_qr_code_inactive_student(client: TestClient, db_session):
     assert data["movement_type"] == SentidoMovimentacao.ENTRADA.value
 
 
-def test_list_movimentacoes_historico_success_and_unauthenticated(
-    client: TestClient, db_session
+def test_list_movimentacoes_historico_returns_401_when_unauthenticated(
+    client: TestClient,
 ):
     client.cookies.clear()
-    unauth_resp = client.get("/api/v1/movimentacao/historico")
-    assert unauth_resp.status_code == 401
+    response = client.get("/api/v1/movimentacao/historico")
+    assert response.status_code == 401
 
+
+def test_list_movimentacoes_historico_returns_200_and_omits_pii_for_operator(
+    client: TestClient, db_session
+):
     pessoa = Pessoa(
         matricula="20241EWBJ0097",
         nome="History Student",
@@ -188,7 +203,9 @@ def test_list_movimentacoes_historico_success_and_unauthenticated(
     assert "operador_id" not in latest
 
 
-def test_list_movimentacoes_historico_forbidden_for_pessoa(client: TestClient):
+def test_list_movimentacoes_historico_returns_403_when_authenticated_as_pessoa(
+    client: TestClient,
+):
     pessoa_token = create_access_token(
         {
             "sub": "1",
@@ -204,7 +221,9 @@ def test_list_movimentacoes_historico_forbidden_for_pessoa(client: TestClient):
     assert resp.status_code == 403
 
 
-def test_scan_qr_code_soft_deleted_student_returns_404(client: TestClient, db_session):
+def test_scan_qr_code_returns_404_when_pessoa_is_soft_deleted(
+    client: TestClient, db_session
+):
     pessoa = Pessoa(
         matricula="20241EWBJ0096",
         nome="Deleted Student",

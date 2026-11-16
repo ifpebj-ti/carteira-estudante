@@ -2,7 +2,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 
-def test_security_headers_present_on_root(client: TestClient):
+def test_root_returns_security_headers_on_http_response(client: TestClient):
     response = client.get("/")
     assert response.status_code == status.HTTP_200_OK
 

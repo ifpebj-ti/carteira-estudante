@@ -8,7 +8,7 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_root_endpoint():
+def test_root_returns_200_and_api_status_metadata():
 
     response = client.get("/")
     assert response.status_code == 200
@@ -19,7 +19,7 @@ def test_root_endpoint():
     assert data["docs"] == "/docs"
 
 
-def test_health_check_success():
+def test_health_check_returns_200_when_database_is_connected():
 
     mock_db = MagicMock()
     mock_db.execute.return_value = None
@@ -36,7 +36,7 @@ def test_health_check_success():
     assert "operando normalmente" in data["message"]
 
 
-def test_health_check_database_failure():
+def test_health_check_returns_500_when_database_connection_fails():
 
     mock_db = MagicMock()
     mock_db.execute.side_effect = Exception("Conexão recusada pelo PostgreSQL")
