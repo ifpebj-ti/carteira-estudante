@@ -13,43 +13,42 @@ from app.schemas.movimentacao import (
 )
 
 
-def _sort_movimentacoes_desc(
-    movimentacoes: Sequence[Movimentacao],
+def _sort_movements_desc(
+    movements: Sequence[Movimentacao],
 ) -> list[Movimentacao]:
-    """Ordena movimentações da mais recente para a mais antiga."""
-    return sorted(movimentacoes, key=lambda mov: mov.data_hora, reverse=True)
+    return sorted(movements, key=lambda movement: movement.data_hora, reverse=True)
 
 
-def build_movimentacao_responses(
-    movimentacoes: Sequence[Movimentacao],
+def build_movement_responses(
+    movements: Sequence[Movimentacao],
 ) -> list[MovimentacaoResponse]:
-    """Formata e ordena movimentações para auditoria administrativa."""
     return [
         MovimentacaoResponse(
-            id=mov.id,
-            pessoa_id=mov.pessoa_id,
-            operador_id=mov.operador_id,
-            tipo=mov.tipo,
-            local_acesso=mov.local_acesso,
-            data_hora=mov.data_hora,
-            operador_nome=mov.operador.nome if mov.operador else "Desconhecido",
+            id=movement.id,
+            pessoa_id=movement.pessoa_id,
+            operador_id=movement.operador_id,
+            tipo=movement.tipo,
+            local_acesso=movement.local_acesso,
+            data_hora=movement.data_hora,
+            operador_nome=(
+                movement.operador.nome if movement.operador else "Desconhecido"
+            ),
         )
-        for mov in _sort_movimentacoes_desc(movimentacoes)
+        for movement in _sort_movements_desc(movements)
     ]
 
 
-def build_pessoa_movimentacao_responses(
-    movimentacoes: Sequence[Movimentacao],
+def build_person_movement_responses(
+    movements: Sequence[Movimentacao],
 ) -> list[PessoaMovimentacaoResponse]:
-    """Formata e ordena movimentações para exibição ao titular sem operador."""
     return [
         PessoaMovimentacaoResponse(
-            id=mov.id,
-            tipo=mov.tipo,
-            local_acesso=mov.local_acesso,
-            data_hora=mov.data_hora,
+            id=movement.id,
+            tipo=movement.tipo,
+            local_acesso=movement.local_acesso,
+            data_hora=movement.data_hora,
         )
-        for mov in _sort_movimentacoes_desc(movimentacoes)
+        for movement in _sort_movements_desc(movements)
     ]
 
 
@@ -77,7 +76,7 @@ def determine_next_movement_type(student: Pessoa, db: Session) -> str:
             return SentidoMovimentacao.SAIDA
         return SentidoMovimentacao.ENTRADA
 
-    # Primeiro movimento do dia depende se o pessoa mora no campus
+    # Campus residents leave first; external commuters enter first.
     if student.is_interno:
         return SentidoMovimentacao.SAIDA
 
