@@ -68,7 +68,7 @@ jobs:
           npm run lint --if-present
 
       - name: Executa Testes do Backend
-        run: docker compose exec backend pytest
+        run: docker compose exec backend pytest --cov-fail-under=70
 
       - name: DAST - OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.15.0
