@@ -1,8 +1,13 @@
+import io
+
+import openpyxl
+import polars as pl
 import pytest
 from fastapi import status
 from pydantic import ValidationError
 
 from app.api.dependencies.security import get_current_user
+from app.api.routers.auth import create_access_token
 from app.models.enums import PerfilOperador, TipoVinculo
 from app.models.pessoa import Pessoa
 from app.models.usuario import UsuarioSistema
@@ -283,3 +288,97 @@ def test_upload_people_returns_202_and_processes_csv_in_background(
     assert created_person.nome == "New Person API"
     assert created_person.cpf == "20000000027"
     assert created_person.status is True
+
+
+def test_upload_people_returns_403_when_called_with_person_token(client):
+    person_token = create_access_token(
+        {
+            "sub": "1",
+            "matricula": "20241EWBJ0001",
+            "role": "ALUNO",
+            "account_type": "pessoa",
+        }
+    )
+    csv_header = b"matricula,nome,cpf,tipo_vinculo\n"
+    response = client.post(
+        "/api/v1/pessoas/upload",
+        files={"file": ("people.csv", csv_header, "text/csv")},
+        headers={"Authorization": f"Bearer {person_token}"},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_upload_people_returns_202_and_processes_xlsx_and_parquet_in_background(
+    client, db_session, monkeypatch
+):
+    monkeypatch.setattr(upload_service, "SessionLocal", TestingSessionLocal)
+
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.append(["matricula", "nome", "cpf", "tipo_vinculo", "curso", "email"])
+    sheet.append(
+        [
+            "20261API0003",
+            "XLSX Router Person",
+            "30000000035",
+            "ALUNO",
+            "ADS",
+            "xlsx_api@discente.ifpe.edu.br",
+        ]
+    )
+    xlsx_buffer = io.BytesIO()
+    workbook.save(xlsx_buffer)
+
+    parquet_df = pl.DataFrame(
+        {
+            "matricula": ["20261API0004"],
+            "nome": ["Parquet Router Person"],
+            "cpf": ["39053344705"],
+            "tipo_vinculo": ["SERVIDOR"],
+            "curso": [None],
+            "email": ["parquet_api@belojardim.ifpe.edu.br"],
+        }
+    )
+    parquet_buffer = io.BytesIO()
+    parquet_df.write_parquet(parquet_buffer)
+
+    client.app.dependency_overrides[get_current_user] = _override_admin
+    try:
+        xlsx_resp = client.post(
+            "/api/v1/pessoas/upload",
+            files={
+                "file": (
+                    "people.xlsx",
+                    xlsx_buffer.getvalue(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            },
+        )
+        parquet_resp = client.post(
+            "/api/v1/pessoas/upload",
+            files={
+                "file": (
+                    "people.parquet",
+                    parquet_buffer.getvalue(),
+                    "application/octet-stream",
+                )
+            },
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
+
+    assert xlsx_resp.status_code == status.HTTP_202_ACCEPTED
+    assert parquet_resp.status_code == status.HTTP_202_ACCEPTED
+
+    db_session.expire_all()
+    xlsx_person = (
+        db_session.query(Pessoa).filter(Pessoa.matricula == "20261API0003").one()
+    )
+    assert xlsx_person.nome == "XLSX Router Person"
+    assert xlsx_person.cpf == "30000000035"
+
+    parquet_person = (
+        db_session.query(Pessoa).filter(Pessoa.matricula == "20261API0004").one()
+    )
+    assert parquet_person.nome == "Parquet Router Person"
+    assert parquet_person.tipo_vinculo == TipoVinculo.SERVIDOR
