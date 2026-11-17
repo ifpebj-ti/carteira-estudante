@@ -4,11 +4,11 @@ version = "1.0.0"
 description = "Backend for Carteira Estudantil Web IFPE"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi==0.162.5",
+    "fastapi==0.162.7",
     "uvicorn[standard]==0.54.0",
     "sqlalchemy==2.1.8",
     "pydantic==2.14.3",
-    "pydantic-settings==2.16.2",
+    "pydantic-settings==2.16.3",
     "python-multipart==0.0.33",
     "httpx2==2.16.0",
     "wheel>=0.46.2",
@@ -22,6 +22,9 @@ dependencies = [
     "joserfc>=1.7.6",
     "pwdlib[bcrypt]>=0.3.1",
     "boto3>=1.44.4",
+    "polars>=2.1.0",
+    "pyarrow>=26.0.1",
+    "openpyxl>=3.1.5",
 ]
 
 [dependency-groups]

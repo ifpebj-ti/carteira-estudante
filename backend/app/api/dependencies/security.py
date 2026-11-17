@@ -13,7 +13,6 @@ from app.models.usuario import UsuarioSistema
 
 
 def _extract_token(request: Request) -> str:
-    """Extrai o token JWT do cabeçalho Authorization Bearer ou cookie HttpOnly."""
     token: Optional[str] = None
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
@@ -33,7 +32,6 @@ def _extract_token(request: Request) -> str:
 
 
 def _decode_token_payload(request: Request) -> tuple[dict, int]:
-    """Decodifica o JWT da requisição e retorna (payload, subject_id)."""
     token = _extract_token(request)
     try:
         payload = jwt.decode(
@@ -60,10 +58,6 @@ def _decode_token_payload(request: Request) -> tuple[dict, int]:
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> UsuarioSistema:
-    """
-    Extrai e valida o token JWT de operador dos cookies ou cabeçalho Authorization.
-    Retorna o usuário operador logado (UsuarioSistema).
-    """
     payload, user_id = _decode_token_payload(request)
     account_type = payload.get("account_type")
     if account_type == "pessoa":
@@ -76,38 +70,34 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Usuario
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido.",
         )
-    # Impede que tokens sem escopo de operador (ex.: token do QR Code) passem aqui
+    # Prevent unscoped tokens (e.g. dynamic QR tokens) from acting as operators.
     if account_type is None and not (payload.get("role") or payload.get("perfil")):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido.",
         )
 
-    usuario = (
+    operator = (
         db.query(UsuarioSistema)
         .filter(UsuarioSistema.id == user_id, UsuarioSistema.deleted_at.is_(None))
         .first()
     )
-    if not usuario:
+    if not operator:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuário não encontrado.",
         )
-    if not usuario.status:
+    if not operator.status:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuário inativo.",
         )
 
-    return usuario
+    return operator
 
 
-def get_current_pessoa(request: Request, db: Session = Depends(get_db)) -> Pessoa:
-    """
-    Extrai e valida o token JWT de conta institucional (Pessoa).
-    Retorna o titular autenticado (ALUNO, PROFESSOR, SERVIDOR ou COORDENACAO).
-    """
-    payload, pessoa_id = _decode_token_payload(request)
+def get_current_person(request: Request, db: Session = Depends(get_db)) -> Pessoa:
+    payload, person_id = _decode_token_payload(request)
     account_type = payload.get("account_type")
     if account_type == "operador" or (
         account_type is None and (payload.get("role") or payload.get("perfil"))
@@ -122,30 +112,27 @@ def get_current_pessoa(request: Request, db: Session = Depends(get_db)) -> Pesso
             detail="Token inválido.",
         )
 
-    pessoa = (
+    person = (
         db.query(Pessoa)
-        .filter(Pessoa.id == pessoa_id, Pessoa.deleted_at.is_(None))
+        .filter(Pessoa.id == person_id, Pessoa.deleted_at.is_(None))
         .first()
     )
-    if not pessoa:
+    if not person:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Titular não encontrado.",
         )
-    if not pessoa.status:
+    if not person.status:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Carteira digital inativa.",
         )
 
-    return pessoa
+    return person
 
 
 class RoleChecker:
-    """
-    Dependência de segurança para controle de acesso baseado em papéis (RBAC).
-    Verifica se o usuário autenticado possui um dos perfis permitidos.
-    """
+    """FastAPI dependency enforcing operator role membership."""
 
     def __init__(self, allowed_roles: Sequence[PerfilOperador] | list[PerfilOperador]):
         self.allowed_roles = allowed_roles
@@ -173,7 +160,4 @@ class RoleChecker:
 def get_current_active_admin(
     current_user: UsuarioSistema = Depends(RoleChecker([PerfilOperador.ADMIN])),
 ) -> UsuarioSistema:
-    """
-    Verifica se o usuário logado tem o perfil de ADMIN.
-    """
     return current_user

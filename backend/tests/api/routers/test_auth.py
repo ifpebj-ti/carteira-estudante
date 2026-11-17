@@ -1,12 +1,15 @@
 import datetime
+from unittest.mock import AsyncMock
 
 import jwt
 import pytest
 from fastapi import HTTPException, status
+from fastapi.responses import RedirectResponse
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.api.dependencies.security import RoleChecker, get_current_user
+from app.api.routers import auth as auth_router
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 from app.models.enums import PerfilOperador, TipoVinculo
@@ -15,14 +18,14 @@ from app.models.usuario import UsuarioSistema
 from app.services.qr_crypto_service import decode_qr_token, generate_qr_token
 
 
-def test_password_hashing_and_verification():
-    hashed = get_password_hash("SenhaForte@123")
-    assert hashed != "SenhaForte@123"
-    assert verify_password("SenhaForte@123", hashed) is True
-    assert verify_password("SenhaErrada", hashed) is False
+def test_verify_password_matches_valid_secret_and_rejects_mismatch():
+    hashed = get_password_hash("StrongPass@123")
+    assert hashed != "StrongPass@123"
+    assert verify_password("StrongPass@123", hashed) is True
+    assert verify_password("WrongPass", hashed) is False
 
 
-def test_role_checker_unit_success():
+def test_role_checker_returns_user_when_role_is_allowed():
     admin = UsuarioSistema(
         id=1,
         nome="Admin User",
@@ -36,24 +39,24 @@ def test_role_checker_unit_success():
     assert result == admin
 
 
-def test_role_checker_unit_forbidden():
-    porteiro = UsuarioSistema(
+def test_role_checker_raises_403_when_role_is_insufficient():
+    doorman = UsuarioSistema(
         id=2,
-        nome="Porteiro User",
-        login="porteiro@ifpe.edu.br",
+        nome="Doorman User",
+        login="doorman@ifpe.edu.br",
         senha_hash="hashed_test_secret",  # noqa: S106
         perfil=PerfilOperador.PORTEIRO,
         status=True,
     )
     checker = RoleChecker([PerfilOperador.ADMIN])
     with pytest.raises(HTTPException) as exc_info:
-        checker(current_user=porteiro)
+        checker(current_user=doorman)
 
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
     assert exc_info.value.detail == "Acesso negado: privilégios insuficientes"
 
 
-def test_list_usuarios_unauthenticated(client: TestClient):
+def test_list_operators_returns_401_when_unauthenticated(client: TestClient):
     response = client.get("/api/v1/auth/usuarios")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert (
@@ -62,18 +65,18 @@ def test_list_usuarios_unauthenticated(client: TestClient):
     )
 
 
-def test_list_usuarios_forbidden_for_porteiro(client: TestClient):
-    def override_porteiro():
+def test_list_operators_returns_403_when_user_is_doorman(client: TestClient):
+    def override_doorman():
         return UsuarioSistema(
             id=2,
-            nome="Porteiro Test",
-            login="porteiro@test.com",
+            nome="Doorman Test",
+            login="doorman@test.com",
             senha_hash="hashed_test_secret",  # noqa: S106
             perfil=PerfilOperador.PORTEIRO,
             status=True,
         )
 
-    client.app.dependency_overrides[get_current_user] = override_porteiro
+    client.app.dependency_overrides[get_current_user] = override_doorman
     try:
         response = client.get("/api/v1/auth/usuarios")
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -82,7 +85,9 @@ def test_list_usuarios_forbidden_for_porteiro(client: TestClient):
         client.app.dependency_overrides.clear()
 
 
-def test_list_usuarios_allowed_for_admin(client: TestClient, db_session):
+def test_list_operators_returns_200_and_list_for_valid_admin(
+    client: TestClient, db_session
+):
     admin = db_session.query(UsuarioSistema).filter(UsuarioSistema.id == 1).first()
     if not admin:
         admin = UsuarioSistema(
@@ -96,10 +101,7 @@ def test_list_usuarios_allowed_for_admin(client: TestClient, db_session):
         db_session.add(admin)
         db_session.commit()
 
-    def override_admin():
-        return admin
-
-    client.app.dependency_overrides[get_current_user] = override_admin
+    client.app.dependency_overrides[get_current_user] = lambda: admin
     try:
         response = client.get("/api/v1/auth/usuarios")
         assert response.status_code == status.HTTP_200_OK
@@ -113,13 +115,13 @@ def test_list_usuarios_allowed_for_admin(client: TestClient, db_session):
 def _create_operator(
     db_session,
     *,
-    nome: str,
+    name: str,
     login: str,
-    senha_hash: str,
-    perfil: PerfilOperador,
-    ativo: bool = True,
+    password_hash: str,
+    role: PerfilOperador,
+    is_active: bool = True,
 ) -> UsuarioSistema:
-    # Outros testes inserem id=1 manualmente sem avançar a sequence no Postgres
+    # Keep PostgreSQL sequence aligned after tests that insert explicit id=1.
     db_session.execute(
         text(
             "SELECT setval("
@@ -129,26 +131,28 @@ def _create_operator(
             ")"
         )
     )
-    operador = UsuarioSistema(
-        nome=nome,
+    operator = UsuarioSistema(
+        nome=name,
         login=login,
-        senha_hash=senha_hash,
-        perfil=perfil,
-        status=ativo,
+        senha_hash=password_hash,
+        perfil=role,
+        status=is_active,
     )
-    db_session.add(operador)
+    db_session.add(operator)
     db_session.commit()
-    db_session.refresh(operador)
-    return operador
+    db_session.refresh(operator)
+    return operator
 
 
-def test_login_manual_success(client: TestClient, db_session):
-    operador = _create_operator(
+def test_login_manual_returns_200_and_jwt_token_for_valid_admin(
+    client: TestClient, db_session
+):
+    operator = _create_operator(
         db_session,
-        nome="Operador Login Teste",
+        name="Operator Login Test",
         login="admin_login_ok",
-        senha_hash=get_password_hash("Mudar@123"),
-        perfil=PerfilOperador.ADMIN,
+        password_hash=get_password_hash("Mudar@123"),
+        role=PerfilOperador.ADMIN,
     )
 
     response = client.post(
@@ -165,7 +169,7 @@ def test_login_manual_success(client: TestClient, db_session):
     payload = jwt.decode(
         data["access_token"], settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
     )
-    assert payload["sub"] == str(operador.id)
+    assert payload["sub"] == str(operator.id)
     assert payload["role"] == PerfilOperador.ADMIN.value
     assert payload["account_type"] == "operador"
 
@@ -176,39 +180,43 @@ def test_login_manual_success(client: TestClient, db_session):
     assert protected_resp.status_code == status.HTTP_200_OK
 
 
-def test_login_manual_wrong_password(client: TestClient, db_session):
+def test_login_manual_raises_401_when_password_is_incorrect(
+    client: TestClient, db_session
+):
     _create_operator(
         db_session,
-        nome="Operador Senha Errada",
+        name="Wrong Password Operator",
         login="porteiro_login_errado",
-        senha_hash=get_password_hash("SenhaCorreta@123"),
-        perfil=PerfilOperador.PORTEIRO,
+        password_hash=get_password_hash("CorrectPass@123"),
+        role=PerfilOperador.PORTEIRO,
     )
 
     response = client.post(
         "/api/v1/auth/login",
-        json={"login": "porteiro_login_errado", "senha": "SenhaIncorreta"},
+        json={"login": "porteiro_login_errado", "senha": "WrongPassword"},
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json()["detail"] == "Credenciais inválidas"
 
 
-def test_login_manual_user_not_found(client: TestClient):
+def test_login_manual_returns_401_when_operator_login_not_found(client: TestClient):
     response = client.post(
         "/api/v1/auth/login",
-        json={"login": "usuario_inexistente", "senha": "Mudar@123"},
+        json={"login": "nonexistent_user", "senha": "Mudar@123"},
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json()["detail"] == "Credenciais inválidas"
 
 
-def test_login_manual_empty_hash_returns_401(client: TestClient, db_session):
+def test_login_manual_returns_401_when_operator_has_empty_password_hash(
+    client: TestClient, db_session
+):
     _create_operator(
         db_session,
-        nome="Operador Sem Senha Local",
+        name="SSO Operator Without Password",
         login="sso_sem_senha",
-        senha_hash="",
-        perfil=PerfilOperador.PORTEIRO,
+        password_hash="",
+        role=PerfilOperador.PORTEIRO,
     )
 
     response = client.post(
@@ -219,13 +227,34 @@ def test_login_manual_empty_hash_returns_401(client: TestClient, db_session):
     assert response.json()["detail"] == "Credenciais inválidas"
 
 
-def test_login_manual_porteiro_respects_role_checker(client: TestClient, db_session):
-    operador = _create_operator(
+def test_login_manual_returns_401_when_stored_password_hash_is_malformed(
+    client: TestClient, db_session
+):
+    _create_operator(
         db_session,
-        nome="Porteiro Login Teste",
+        name="Corrupted Hash Operator",
+        login="operador_hash_invalido",
+        password_hash="not-a-valid-bcrypt-hash",  # noqa: S106
+        role=PerfilOperador.PORTEIRO,
+    )
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"login": "operador_hash_invalido", "senha": "Mudar@123"},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json()["detail"] == "Credenciais inválidas"
+
+
+def test_login_manual_returns_200_for_doorman_and_enforces_403_on_admin_route(
+    client: TestClient, db_session
+):
+    operator = _create_operator(
+        db_session,
+        name="Doorman Login Test",
         login="porteiro_login_ok",
-        senha_hash=get_password_hash("Mudar@123"),
-        perfil=PerfilOperador.PORTEIRO,
+        password_hash=get_password_hash("Mudar@123"),
+        role=PerfilOperador.PORTEIRO,
     )
 
     response = client.post(
@@ -236,7 +265,7 @@ def test_login_manual_porteiro_respects_role_checker(client: TestClient, db_sess
     token = response.json()["access_token"]
 
     payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    assert payload["sub"] == str(operador.id)
+    assert payload["sub"] == str(operator.id)
     assert payload["role"] == PerfilOperador.PORTEIRO.value
 
     me_resp = client.get(
@@ -253,19 +282,21 @@ def test_login_manual_porteiro_respects_role_checker(client: TestClient, db_sess
     assert admin_only_resp.status_code == status.HTTP_403_FORBIDDEN
 
 
-def test_login_manual_inactive_user_returns_403(client: TestClient, db_session):
+def test_login_manual_returns_403_when_operator_is_inactive(
+    client: TestClient, db_session
+):
     _create_operator(
         db_session,
-        nome="Operador Inativo",
+        name="Inactive Operator",
         login="operador_inativo",
-        senha_hash=get_password_hash("Mudar@123"),
-        perfil=PerfilOperador.PORTEIRO,
-        ativo=False,
+        password_hash=get_password_hash("Mudar@123"),
+        role=PerfilOperador.PORTEIRO,
+        is_active=False,
     )
 
     wrong_resp = client.post(
         "/api/v1/auth/login",
-        json={"login": "operador_inativo", "senha": "SenhaErrada"},
+        json={"login": "operador_inativo", "senha": "WrongPassword"},
     )
     assert wrong_resp.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -276,15 +307,17 @@ def test_login_manual_inactive_user_returns_403(client: TestClient, db_session):
     assert valid_resp.status_code == status.HTTP_403_FORBIDDEN
 
 
-def test_login_manual_deleted_user_returns_401(client: TestClient, db_session):
-    operador = _create_operator(
+def test_login_manual_returns_401_when_operator_is_soft_deleted(
+    client: TestClient, db_session
+):
+    operator = _create_operator(
         db_session,
-        nome="Operador Removido",
+        name="Deleted Operator",
         login="operador_removido",
-        senha_hash=get_password_hash("Mudar@123"),
-        perfil=PerfilOperador.ADMIN,
+        password_hash=get_password_hash("Mudar@123"),
+        role=PerfilOperador.ADMIN,
     )
-    operador.deleted_at = datetime.datetime.now(datetime.timezone.utc)
+    operator.deleted_at = datetime.datetime.now(datetime.timezone.utc)
     db_session.commit()
 
     response = client.post(
@@ -300,25 +333,25 @@ def _make_valid_cpf(seed_num: int) -> str:
     digits = [int(c) for c in f"{base_val:09d}"]
     if len(set(digits)) == 1:
         digits[0] = (digits[0] + 1) % 10
-    r1 = sum(digits[i] * (10 - i) for i in range(9)) % 11
-    digits.append(0 if r1 < 2 else 11 - r1)
-    r2 = sum(digits[i] * (11 - i) for i in range(10)) % 11
-    digits.append(0 if r2 < 2 else 11 - r2)
+    first_r = sum(digits[i] * (10 - i) for i in range(9)) % 11
+    digits.append(0 if first_r < 2 else 11 - first_r)
+    second_r = sum(digits[i] * (11 - i) for i in range(10)) % 11
+    digits.append(0 if second_r < 2 else 11 - second_r)
     return "".join(str(d) for d in digits)
 
 
-def _create_pessoa(
+def _create_person(
     db_session,
     *,
     cpf_seed: int,
-    nome: str,
+    name: str,
     matricula: str,
     email: str | None,
-    senha_hash: str | None,
-    tipo_vinculo: TipoVinculo = TipoVinculo.ALUNO,
-    ativo: bool = True,
+    password_hash: str | None,
+    affiliation: TipoVinculo = TipoVinculo.ALUNO,
+    is_active: bool = True,
 ) -> Pessoa:
-    # Outros testes inserem id=1 manualmente em pessoas sem avançar a sequence
+    # Keep PostgreSQL sequence aligned after tests that insert explicit id=1.
     db_session.execute(
         text(
             "SELECT setval("
@@ -328,33 +361,33 @@ def _create_pessoa(
             ")"
         )
     )
-    pessoa = Pessoa(
-        nome=nome,
+    person = Pessoa(
+        nome=name,
         cpf=_make_valid_cpf(cpf_seed),
         matricula=matricula,
         email=email,
-        senha_hash=senha_hash,
-        tipo_vinculo=tipo_vinculo,
-        curso="Engenharia de Software",
-        status=ativo,
+        senha_hash=password_hash,
+        tipo_vinculo=affiliation,
+        curso="Software Engineering",
+        status=is_active,
     )
-    db_session.add(pessoa)
+    db_session.add(person)
     db_session.commit()
-    db_session.refresh(pessoa)
-    return pessoa
+    db_session.refresh(person)
+    return person
 
 
-def test_login_pessoa_by_matricula_and_email_on_both_routes(
+def test_login_person_returns_200_for_matricula_and_email_on_both_routes(
     client: TestClient, db_session
 ):
-    pessoa = _create_pessoa(
+    person = _create_person(
         db_session,
         cpf_seed=1,
-        nome="Aluno Autenticacao Teste",
+        name="Student Auth Test",
         matricula="20241EWBJ9001",
         email="Aluno.Auth@discente.ifpe.edu.br",
-        senha_hash=get_password_hash("Mudar@123"),
-        tipo_vinculo=TipoVinculo.ALUNO,
+        password_hash=get_password_hash("Mudar@123"),
+        affiliation=TipoVinculo.ALUNO,
     )
 
     for endpoint in ("/api/v1/auth/login", "/api/v1/auth/pessoa/login"):
@@ -374,14 +407,14 @@ def test_login_pessoa_by_matricula_and_email_on_both_routes(
                 settings.SECRET_KEY,
                 algorithms=[settings.ALGORITHM],
             )
-            assert claims["sub"] == str(pessoa.id)
-            assert claims["matricula"] == pessoa.matricula
+            assert claims["sub"] == str(person.id)
+            assert claims["matricula"] == person.matricula
             assert claims["role"] == TipoVinculo.ALUNO.value
             assert claims["account_type"] == "pessoa"
 
 
 @pytest.mark.parametrize(
-    ("cpf_seed", "vinculo", "matricula", "email"),
+    ("cpf_seed", "affiliation", "matricula", "email"),
     [
         (2, TipoVinculo.ALUNO, "20241EWBJ9002", "aluno_v@discente.ifpe.edu.br"),
         (
@@ -399,22 +432,22 @@ def test_login_pessoa_by_matricula_and_email_on_both_routes(
         ),
     ],
 )
-def test_login_pessoa_all_vinculos(
+def test_login_person_returns_200_for_all_affiliations(
     client: TestClient,
     db_session,
     cpf_seed: int,
-    vinculo: TipoVinculo,
+    affiliation: TipoVinculo,
     matricula: str,
     email: str,
 ):
-    _create_pessoa(
+    _create_person(
         db_session,
         cpf_seed=cpf_seed,
-        nome=f"Titular {vinculo.value}",
+        name=f"Holder {affiliation.value}",
         matricula=matricula,
         email=email,
-        senha_hash=get_password_hash("Mudar@123"),
-        tipo_vinculo=vinculo,
+        password_hash=get_password_hash("Mudar@123"),
+        affiliation=affiliation,
     )
 
     resp = client.post(
@@ -424,118 +457,155 @@ def test_login_pessoa_all_vinculos(
     assert resp.status_code == status.HTTP_200_OK
     data = resp.json()
     assert data["account_type"] == "pessoa"
-    assert data["role"] == vinculo.value
+    assert data["role"] == affiliation.value
 
 
-def test_login_pessoa_failure_cases(client: TestClient, db_session):
-    _create_pessoa(
+def test_login_person_returns_401_when_password_is_incorrect(
+    client: TestClient, db_session
+):
+    _create_person(
         db_session,
         cpf_seed=10,
-        nome="Aluno Senha Errada",
+        name="Wrong Password Student",
         matricula="20241EWBJ9010",
         email="errada@discente.ifpe.edu.br",
-        senha_hash=get_password_hash("SenhaCorreta@123"),
+        password_hash=get_password_hash("CorrectPass@123"),
     )
-    _create_pessoa(
+
+    resp = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": "20241EWBJ9010", "senha": "Wrong"},
+    )
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_login_returns_401_when_person_has_no_password_hash(
+    client: TestClient, db_session
+):
+    _create_person(
         db_session,
         cpf_seed=11,
-        nome="Aluno Sem Hash",
+        name="No Hash Student",
         matricula="20241EWBJ9011",
         email="semhash@discente.ifpe.edu.br",
-        senha_hash=None,
+        password_hash=None,
     )
-    _create_pessoa(
-        db_session,
-        cpf_seed=12,
-        nome="Aluno Inativo",
-        matricula="20241EWBJ9012",
-        email="inativo@discente.ifpe.edu.br",
-        senha_hash=get_password_hash("Mudar@123"),
-        ativo=False,
-    )
-    deletado = _create_pessoa(
-        db_session,
-        cpf_seed=13,
-        nome="Aluno Deletado",
-        matricula="20241EWBJ9013",
-        email="deletado@discente.ifpe.edu.br",
-        senha_hash=get_password_hash("Mudar@123"),
-    )
-    deletado.deleted_at = datetime.datetime.now(datetime.timezone.utc)
-    db_session.commit()
 
-    # Senha errada
-    r1 = client.post(
-        "/api/v1/auth/pessoa/login",
-        json={"login": "20241EWBJ9010", "senha": "Errada"},
-    )
-    assert r1.status_code == status.HTTP_401_UNAUTHORIZED
-
-    # Sem senha cadastrada (importação CSV futura)
-    r2 = client.post(
+    resp = client.post(
         "/api/v1/auth/login",
         json={"login": "20241EWBJ9011", "senha": "Mudar@123"},
     )
-    assert r2.status_code == status.HTTP_401_UNAUTHORIZED
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    # Login em branco
-    r_blank = client.post(
+
+def test_login_returns_401_when_unified_login_identifier_is_blank(
+    client: TestClient,
+):
+    resp = client.post(
         "/api/v1/auth/login",
         json={"login": "   ", "senha": "Mudar@123"},
     )
-    assert r_blank.status_code == status.HTTP_401_UNAUTHORIZED
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    # Pessoa inativa: senha errada -> 401, senha certa -> 403
-    r_inativo_errado = client.post(
+
+def test_login_person_returns_401_when_login_identifier_is_blank(
+    client: TestClient,
+):
+    resp = client.post(
         "/api/v1/auth/pessoa/login",
-        json={"login": "20241EWBJ9012", "senha": "Errada"},
+        json={"login": "   ", "senha": "Mudar@123"},
     )
-    assert r_inativo_errado.status_code == status.HTTP_401_UNAUTHORIZED
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    r_inativo_ok = client.post(
+
+def test_login_person_returns_401_when_inactive_person_uses_wrong_password(
+    client: TestClient, db_session
+):
+    _create_person(
+        db_session,
+        cpf_seed=12,
+        name="Inactive Wrong Password Student",
+        matricula="20241EWBJ9012",
+        email="inativo@discente.ifpe.edu.br",
+        password_hash=get_password_hash("Mudar@123"),
+        is_active=False,
+    )
+
+    resp = client.post(
         "/api/v1/auth/pessoa/login",
-        json={"login": "20241EWBJ9012", "senha": "Mudar@123"},
+        json={"login": "20241EWBJ9012", "senha": "Wrong"},
     )
-    assert r_inativo_ok.status_code == status.HTTP_403_FORBIDDEN
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    # Pessoa com soft delete
-    r_del = client.post(
+
+def test_login_person_returns_403_when_person_is_inactive(
+    client: TestClient, db_session
+):
+    _create_person(
+        db_session,
+        cpf_seed=14,
+        name="Inactive Student",
+        matricula="20241EWBJ9014",
+        email="inativo_ok@discente.ifpe.edu.br",
+        password_hash=get_password_hash("Mudar@123"),
+        is_active=False,
+    )
+
+    resp = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": "20241EWBJ9014", "senha": "Mudar@123"},
+    )
+    assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_login_person_returns_401_when_person_is_soft_deleted(
+    client: TestClient, db_session
+):
+    deleted_person = _create_person(
+        db_session,
+        cpf_seed=13,
+        name="Deleted Student",
+        matricula="20241EWBJ9013",
+        email="deletado@discente.ifpe.edu.br",
+        password_hash=get_password_hash("Mudar@123"),
+    )
+    deleted_person.deleted_at = datetime.datetime.now(datetime.timezone.utc)
+    db_session.commit()
+
+    resp = client.post(
         "/api/v1/auth/pessoa/login",
         json={"login": "20241EWBJ9013", "senha": "Mudar@123"},
     )
-    assert r_del.status_code == status.HTTP_401_UNAUTHORIZED
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-def test_login_operator_precedence_does_not_fallback_to_pessoa(
+def test_login_manual_operator_precedence_does_not_fallback_to_person(
     client: TestClient, db_session
 ):
     shared_email = "compartilhado@ifpe.edu.br"
     _create_operator(
         db_session,
-        nome="Operador Compartilhado",
+        name="Shared Operator",
         login=shared_email,
-        senha_hash=get_password_hash("Admin@123"),
-        perfil=PerfilOperador.ADMIN,
+        password_hash=get_password_hash("Admin@123"),
+        role=PerfilOperador.ADMIN,
     )
-    _create_pessoa(
+    _create_person(
         db_session,
         cpf_seed=20,
-        nome="Pessoa Compartilhada",
+        name="Shared Person",
         matricula="20241EWBJ9020",
         email=shared_email,
-        senha_hash=get_password_hash("Aluno@123"),
-        tipo_vinculo=TipoVinculo.ALUNO,
+        password_hash=get_password_hash("Aluno@123"),
+        affiliation=TipoVinculo.ALUNO,
     )
 
-    # No /login unificado, se o login existe em usuarios_sistema,
-    # senha errada do operador NUNCA cai no fallback de Pessoa.
     wrong_on_unified = client.post(
         "/api/v1/auth/login",
         json={"login": shared_email, "senha": "Aluno@123"},
     )
     assert wrong_on_unified.status_code == status.HTTP_401_UNAUTHORIZED
 
-    # Credencial de operador autentica normalmente como operador no /login
     op_resp = client.post(
         "/api/v1/auth/login",
         json={"login": shared_email, "senha": "Admin@123"},
@@ -543,125 +613,144 @@ def test_login_operator_precedence_does_not_fallback_to_pessoa(
     assert op_resp.status_code == status.HTTP_200_OK
     assert op_resp.json()["account_type"] == "operador"
 
-    # E a rota dedicada /pessoa/login autentica explicitamente o perfil Pessoa
-    pessoa_resp = client.post(
+    person_resp = client.post(
         "/api/v1/auth/pessoa/login",
         json={"login": shared_email, "senha": "Aluno@123"},
     )
-    assert pessoa_resp.status_code == status.HTTP_200_OK
-    assert pessoa_resp.json()["account_type"] == "pessoa"
+    assert person_resp.status_code == status.HTTP_200_OK
+    assert person_resp.json()["account_type"] == "pessoa"
 
 
-def test_pessoa_me_and_token_isolation(client: TestClient, db_session):
-    assert (
-        client.get("/api/v1/auth/pessoa/me").status_code == status.HTTP_401_UNAUTHORIZED
-    )
+def test_get_person_me_returns_401_when_unauthenticated(client: TestClient):
+    client.cookies.clear()
+    response = client.get("/api/v1/auth/pessoa/me")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    operador = _create_operator(
-        db_session,
-        nome="Admin Isolamento",
-        login="admin_isolamento",
-        senha_hash=get_password_hash("Mudar@123"),
-        perfil=PerfilOperador.ADMIN,
-    )
-    pessoa = _create_pessoa(
+
+def test_get_person_me_returns_200_with_cookie_bearer_and_scan_history(
+    client: TestClient, db_session
+):
+    person = _create_person(
         db_session,
         cpf_seed=30,
-        nome="Aluno Isolamento",
+        name="Isolation Student",
         matricula="20241EWBJ9030",
         email="isolamento@discente.ifpe.edu.br",
-        senha_hash=get_password_hash("Mudar@123"),
-        tipo_vinculo=TipoVinculo.ALUNO,
+        password_hash=get_password_hash("Mudar@123"),
+        affiliation=TipoVinculo.ALUNO,
     )
 
-    op_token = client.post(
-        "/api/v1/auth/login",
-        json={"login": operador.login, "senha": "Mudar@123"},
-    ).json()["access_token"]
-
-    pessoa_login_resp = client.post(
+    person_login_resp = client.post(
         "/api/v1/auth/pessoa/login",
-        json={"login": pessoa.matricula, "senha": "Mudar@123"},
+        json={"login": person.matricula, "senha": "Mudar@123"},
     )
-    pessoa_token = pessoa_login_resp.json()["access_token"]
+    person_token = person_login_resp.json()["access_token"]
 
-    # Cookie HttpOnly definido no login autentica /pessoa/me sem header Bearer
     cookie_me_resp = client.get("/api/v1/auth/pessoa/me")
     assert cookie_me_resp.status_code == status.HTTP_200_OK
-    assert cookie_me_resp.json()["matricula"] == pessoa.matricula
+    assert cookie_me_resp.json()["matricula"] == person.matricula
 
-    # Limpa cookies da sessão para testar isolamento estrito via Bearer token
     client.cookies.clear()
 
-    # Titular acessa seus próprios dados + QR dinâmico sem expor senha_hash
     me_resp = client.get(
         "/api/v1/auth/pessoa/me",
-        headers={"Authorization": f"Bearer {pessoa_token}"},
+        headers={"Authorization": f"Bearer {person_token}"},
     )
     assert me_resp.status_code == status.HTTP_200_OK
     me_data = me_resp.json()
-    assert me_data["id"] == pessoa.id
-    assert me_data["matricula"] == pessoa.matricula
+    assert me_data["id"] == person.id
+    assert me_data["matricula"] == person.matricula
     assert me_data["tipo_vinculo"] == TipoVinculo.ALUNO.value
     assert "senha_hash" not in me_data
     assert me_data["qr_expires_in"] == settings.QR_CODE_EXPIRE_SECONDS
-    assert decode_qr_token(me_data["qr_token"]) == pessoa.id
+    assert decode_qr_token(me_data["qr_token"]) == person.id
 
-    # QR dinâmico retornado no /pessoa/me é aceito pela portaria na leitura
-    porteiro = _create_operator(
+    doorman = _create_operator(
         db_session,
-        nome="Porteiro Scan Teste",
+        name="Scan Doorman Test",
         login="porteiro_scan_teste",
-        senha_hash=get_password_hash("Mudar@123"),
-        perfil=PerfilOperador.PORTEIRO,
+        password_hash=get_password_hash("Mudar@123"),
+        role=PerfilOperador.PORTEIRO,
     )
-    porteiro_token = client.post(
+    doorman_token = client.post(
         "/api/v1/auth/login",
-        json={"login": porteiro.login, "senha": "Mudar@123"},
+        json={"login": doorman.login, "senha": "Mudar@123"},
     ).json()["access_token"]
     client.cookies.clear()
+
     scan_resp = client.post(
         "/api/v1/movimentacao/scan",
         json={"qr_code_hash": me_data["qr_token"], "local_acesso": "PORTARIA"},
-        headers={"Authorization": f"Bearer {porteiro_token}"},
+        headers={"Authorization": f"Bearer {doorman_token}"},
     )
     assert scan_resp.status_code == status.HTTP_200_OK
     assert scan_resp.json()["status"] is True
 
-    # Histórico do titular atualizado é retornado em /pessoa/me
     me_after_scan = client.get(
         "/api/v1/auth/pessoa/me",
-        headers={"Authorization": f"Bearer {pessoa_token}"},
+        headers={"Authorization": f"Bearer {person_token}"},
     )
     assert me_after_scan.status_code == status.HTTP_200_OK
-    movs = me_after_scan.json()["movimentacoes"]
-    assert len(movs) == 1
-    assert movs[0]["tipo"] == "ENTRADA"
-    assert movs[0]["local_acesso"] == "PORTARIA"
-    assert "operador_nome" not in movs[0]
-    assert "operador_id" not in movs[0]
+    movements = me_after_scan.json()["movimentacoes"]
+    assert len(movements) == 1
+    assert movements[0]["tipo"] == "ENTRADA"
+    assert movements[0]["local_acesso"] == "PORTARIA"
+    assert "operador_nome" not in movements[0]
+    assert "operador_id" not in movements[0]
 
-    # Sessão de titular NÃO funciona como QR code nem em rotas de operador
+
+def test_decode_qr_token_raises_401_when_given_person_session_token(
+    client: TestClient, db_session
+):
+    person = _create_person(
+        db_session,
+        cpf_seed=31,
+        name="Student Token Isolation",
+        matricula="20241EWBJ9031",
+        email="isolation31@discente.ifpe.edu.br",
+        password_hash=get_password_hash("Mudar@123"),
+    )
+    person_token = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": person.matricula, "senha": "Mudar@123"},
+    ).json()["access_token"]
+    client.cookies.clear()
     with pytest.raises(HTTPException) as qr_exc:
-        decode_qr_token(pessoa_token)
+        decode_qr_token(person_token)
     assert qr_exc.value.status_code == status.HTTP_401_UNAUTHORIZED
 
     assert (
         client.get(
             "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {pessoa_token}"},
+            headers={"Authorization": f"Bearer {person_token}"},
         ).status_code
         == status.HTTP_403_FORBIDDEN
     )
     assert (
         client.get(
             "/api/v1/auth/usuarios",
-            headers={"Authorization": f"Bearer {pessoa_token}"},
+            headers={"Authorization": f"Bearer {person_token}"},
         ).status_code
         == status.HTTP_403_FORBIDDEN
     )
 
-    # Token de operador NÃO acessa /pessoa/me
+
+def test_get_person_me_returns_403_when_called_with_operator_token(
+    client: TestClient, db_session
+):
+    operator = _create_operator(
+        db_session,
+        name="Isolation Admin",
+        login="admin_isolamento_32",
+        password_hash=get_password_hash("Mudar@123"),
+        role=PerfilOperador.ADMIN,
+    )
+    op_token = client.post(
+        "/api/v1/auth/login",
+        json={"login": operator.login, "senha": "Mudar@123"},
+    ).json()["access_token"]
+    client.cookies.clear()
+
     assert (
         client.get(
             "/api/v1/auth/pessoa/me",
@@ -670,8 +759,11 @@ def test_pessoa_me_and_token_isolation(client: TestClient, db_session):
         == status.HTTP_403_FORBIDDEN
     )
 
-    # Token de QR Code NÃO autentica em /auth/me nem em /auth/pessoa/me
-    qr_only_token = generate_qr_token(pessoa.id)
+
+def test_auth_me_routes_return_401_when_called_with_qr_only_token(
+    client: TestClient,
+):
+    qr_only_token = generate_qr_token(999)
     assert (
         client.get(
             "/api/v1/auth/me",
@@ -687,25 +779,211 @@ def test_pessoa_me_and_token_isolation(client: TestClient, db_session):
         == status.HTTP_401_UNAUTHORIZED
     )
 
-    # Desativar titular após login bloqueia /pessoa/me com 403
-    pessoa.status = False
+
+def test_get_person_me_returns_403_when_person_is_deactivated_after_login(
+    client: TestClient, db_session
+):
+    person = _create_person(
+        db_session,
+        cpf_seed=33,
+        name="Student Deactivated After Login",
+        matricula="20241EWBJ9033",
+        email="desativado33@discente.ifpe.edu.br",
+        password_hash=get_password_hash("Mudar@123"),
+    )
+    person_token = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": person.matricula, "senha": "Mudar@123"},
+    ).json()["access_token"]
+    client.cookies.clear()
+
+    person.status = False
     db_session.commit()
-    assert (
-        client.get(
-            "/api/v1/auth/pessoa/me",
-            headers={"Authorization": f"Bearer {pessoa_token}"},
-        ).status_code
-        == status.HTTP_403_FORBIDDEN
+
+    response = client.get(
+        "/api/v1/auth/pessoa/me",
+        headers={"Authorization": f"Bearer {person_token}"},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_person_me_returns_401_when_person_is_soft_deleted_after_login(
+    client: TestClient, db_session
+):
+    person = _create_person(
+        db_session,
+        cpf_seed=34,
+        name="Student Deleted After Login",
+        matricula="20241EWBJ9034",
+        email="deletado34@discente.ifpe.edu.br",
+        password_hash=get_password_hash("Mudar@123"),
+    )
+    person_token = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": person.matricula, "senha": "Mudar@123"},
+    ).json()["access_token"]
+    client.cookies.clear()
+
+    person.deleted_at = datetime.datetime.now(datetime.timezone.utc)
+    db_session.commit()
+
+    response = client.get(
+        "/api/v1/auth/pessoa/me",
+        headers={"Authorization": f"Bearer {person_token}"},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_login_google_redirects_with_http_callback_in_development(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    mock_authorize = AsyncMock(
+        return_value=RedirectResponse("https://accounts.google.com/o/oauth2/v2/auth")
+    )
+    monkeypatch.setattr(auth_router.oauth.google, "authorize_redirect", mock_authorize)
+
+    response = client.get("/api/v1/auth/login/google", follow_redirects=False)
+
+    assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+    mock_authorize.assert_awaited_once()
+    redirect_uri = mock_authorize.await_args.args[1]
+    assert redirect_uri.startswith("http://")
+    assert redirect_uri.endswith("/api/v1/auth/callback")
+
+
+def test_login_google_forces_https_callback_uri_in_production(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    mock_authorize = AsyncMock(
+        return_value=RedirectResponse("https://accounts.google.com/o/oauth2/v2/auth")
+    )
+    monkeypatch.setattr(auth_router.oauth.google, "authorize_redirect", mock_authorize)
+
+    response = client.get("/api/v1/auth/login/google", follow_redirects=False)
+
+    assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+    mock_authorize.assert_awaited_once()
+    redirect_uri = mock_authorize.await_args.args[1]
+    assert redirect_uri.startswith("https://")
+    assert redirect_uri.endswith("/api/v1/auth/callback")
+
+
+def test_auth_callback_returns_400_when_google_token_exchange_fails(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(
+        auth_router.oauth.google,
+        "authorize_access_token",
+        AsyncMock(side_effect=RuntimeError("OAuth failure")),
     )
 
-    # Soft-delete do titular após login invalida a sessão com 401
-    pessoa.status = True
-    pessoa.deleted_at = datetime.datetime.now(datetime.timezone.utc)
-    db_session.commit()
-    assert (
-        client.get(
-            "/api/v1/auth/pessoa/me",
-            headers={"Authorization": f"Bearer {pessoa_token}"},
-        ).status_code
-        == status.HTTP_401_UNAUTHORIZED
+    response = client.get("/api/v1/auth/callback")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Erro ao obter dados do Google: OAuth failure" in response.json()["detail"]
+
+
+def test_auth_callback_returns_400_when_google_userinfo_lacks_email(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(
+        auth_router.oauth.google,
+        "authorize_access_token",
+        AsyncMock(return_value={"userinfo": {}}),
     )
+
+    response = client.get("/api/v1/auth/callback")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == "Não foi possível recuperar o email do Google."
+
+
+def test_auth_callback_returns_403_when_google_email_is_not_registered(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(
+        auth_router.oauth.google,
+        "authorize_access_token",
+        AsyncMock(return_value={"userinfo": {"email": "nao_existe@ifpe.edu.br"}}),
+    )
+
+    response = client.get("/api/v1/auth/callback")
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert (
+        response.json()["detail"]
+        == "Acesso Negado. Este email não está cadastrado como Operador ou Admin."
+    )
+
+
+def test_auth_callback_returns_403_when_google_operator_is_inactive(
+    client: TestClient, db_session, monkeypatch
+):
+    _create_operator(
+        db_session,
+        name="Inactive SSO Operator",
+        login="sso_inativo@ifpe.edu.br",
+        password_hash="",
+        role=PerfilOperador.ADMIN,
+        is_active=False,
+    )
+    monkeypatch.setattr(
+        auth_router.oauth.google,
+        "authorize_access_token",
+        AsyncMock(return_value={"userinfo": {"email": "sso_inativo@ifpe.edu.br"}}),
+    )
+
+    response = client.get("/api/v1/auth/callback")
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"] == "Acesso Negado. Usuário inativo."
+
+
+def test_auth_callback_returns_307_and_sets_cookie_for_valid_operator(
+    client: TestClient, db_session, monkeypatch
+):
+    operator = _create_operator(
+        db_session,
+        name="Valid SSO Operator",
+        login="sso_valido@ifpe.edu.br",
+        password_hash="",
+        role=PerfilOperador.ADMIN,
+        is_active=True,
+    )
+    monkeypatch.setattr(
+        auth_router.oauth.google,
+        "authorize_access_token",
+        AsyncMock(return_value={"userinfo": {"email": operator.login}}),
+    )
+
+    response = client.get("/api/v1/auth/callback", follow_redirects=False)
+
+    assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+    assert response.headers["location"] == f"{settings.FRONTEND_URL.rstrip('/')}/admin"
+    cookie_token = response.cookies.get("access_token")
+    assert cookie_token is not None
+
+    claims = jwt.decode(
+        cookie_token,
+        settings.SECRET_KEY,
+        algorithms=[settings.ALGORITHM],
+    )
+    assert claims["sub"] == str(operator.id)
+    assert claims["email"] == operator.login
+    assert claims["account_type"] == "operador"
+
+
+def test_logout_returns_307_redirect_and_clears_access_token_cookie(
+    client: TestClient,
+):
+    client.cookies.set("access_token", "dummy-session-cookie")
+
+    response = client.get("/api/v1/auth/logout", follow_redirects=False)
+
+    assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+    assert response.headers["location"] == f"{settings.FRONTEND_URL.rstrip('/')}/"
+    set_cookie_header = response.headers.get("set-cookie", "")
+    assert "access_token=" in set_cookie_header
+    assert "Max-Age=0" in set_cookie_header

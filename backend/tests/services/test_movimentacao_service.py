@@ -13,12 +13,12 @@ from app.services.movimentacao_service import (
 )
 
 
-def test_validate_student_status_active():
+def test_validate_student_status_succeeds_when_student_is_active():
     student = Pessoa(status=True)
     validate_student_status(student)
 
 
-def test_validate_student_status_inactive():
+def test_validate_student_status_raises_403_when_student_is_inactive():
     student = Pessoa(status=False)
     with pytest.raises(HTTPException) as exc_info:
         validate_student_status(student)
@@ -26,7 +26,7 @@ def test_validate_student_status_inactive():
     assert "inativa" in exc_info.value.detail
 
 
-def test_determine_next_movement_type_first_access_externo():
+def test_determine_next_movement_type_returns_entrada_for_external_first_access():
     db_mock = MagicMock()
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
     mock_query.order_by.return_value.first.return_value = None
@@ -36,7 +36,7 @@ def test_determine_next_movement_type_first_access_externo():
     assert movement_type == SentidoMovimentacao.ENTRADA
 
 
-def test_determine_next_movement_type_first_access_interno():
+def test_determine_next_movement_type_returns_saida_for_internal_first_access():
     db_mock = MagicMock()
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
     mock_query.order_by.return_value.first.return_value = None
@@ -46,7 +46,7 @@ def test_determine_next_movement_type_first_access_interno():
     assert movement_type == SentidoMovimentacao.SAIDA
 
 
-def test_determine_next_movement_type_after_entry():
+def test_determine_next_movement_type_returns_saida_after_previous_entrada():
     db_mock = MagicMock()
     last_mov = Movimentacao(tipo=SentidoMovimentacao.ENTRADA, data_hora=datetime.now())
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
@@ -57,7 +57,7 @@ def test_determine_next_movement_type_after_entry():
     assert movement_type == SentidoMovimentacao.SAIDA
 
 
-def test_determine_next_movement_type_after_exit():
+def test_determine_next_movement_type_returns_entrada_after_previous_saida():
     db_mock = MagicMock()
     last_mov = Movimentacao(tipo=SentidoMovimentacao.SAIDA, data_hora=datetime.now())
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
