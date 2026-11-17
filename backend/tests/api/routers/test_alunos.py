@@ -11,7 +11,7 @@ from app.api.routers.auth import create_access_token
 from app.models.enums import PerfilOperador, TipoVinculo
 from app.models.pessoa import Pessoa
 from app.models.usuario import UsuarioSistema
-from app.schemas.pessoa import PessoaBase, PessoaResponse
+from app.schemas.pessoa import PessoaBase, PessoaResponse, PessoaUpdate
 from app.services import upload_service
 from tests.conftest import TestingSessionLocal
 
@@ -38,6 +38,29 @@ def _override_doorman():
     )
 
 
+def _get_or_create_person(
+    db_session,
+    *,
+    matricula: str,
+    name: str,
+    cpf: str,
+    email: str | None = None,
+) -> Pessoa:
+    person = db_session.query(Pessoa).filter(Pessoa.matricula == matricula).first()
+    if not person:
+        person = Pessoa(
+            matricula=matricula,
+            nome=name,
+            cpf=cpf,
+            email=email,
+            tipo_vinculo="ALUNO",
+        )
+        db_session.add(person)
+        db_session.commit()
+        db_session.refresh(person)
+    return person
+
+
 def test_get_person_by_matricula_returns_404_when_matricula_not_found(client):
     response = client.get("/api/v1/pessoas/20241INBJ9999")
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -45,14 +68,12 @@ def test_get_person_by_matricula_returns_404_when_matricula_not_found(client):
 
 
 def test_get_person_by_matricula_returns_200_and_details_when_found(client, db_session):
-    person = Pessoa(
+    _get_or_create_person(
+        db_session,
         matricula="20241EWBJ0001",
-        nome="Test Student",
+        name="Test Student",
         cpf="12345670088",
-        tipo_vinculo="ALUNO",
     )
-    db_session.add(person)
-    db_session.commit()
 
     response = client.get("/api/v1/pessoas/20241EWBJ0001")
     assert response.status_code == status.HTTP_200_OK
@@ -63,18 +84,12 @@ def test_get_person_by_matricula_returns_200_and_details_when_found(client, db_s
 
 
 def test_list_people_returns_200_and_list_for_valid_admin(client, db_session):
-    person = (
-        db_session.query(Pessoa).filter(Pessoa.matricula == "20241EWBJ0099").first()
+    _get_or_create_person(
+        db_session,
+        matricula="20241EWBJ0099",
+        name="Admin Listed Student",
+        cpf="11144477735",
     )
-    if not person:
-        person = Pessoa(
-            matricula="20241EWBJ0099",
-            nome="Admin Listed Student",
-            cpf="11144477735",
-            tipo_vinculo="ALUNO",
-        )
-        db_session.add(person)
-        db_session.commit()
 
     client.app.dependency_overrides[get_current_user] = _override_admin
     try:
@@ -90,18 +105,12 @@ def test_list_people_returns_200_and_list_for_valid_admin(client, db_session):
 def test_update_person_returns_200_and_updates_fields_for_valid_admin(
     client, db_session
 ):
-    person = (
-        db_session.query(Pessoa).filter(Pessoa.matricula == "20241EWBJ0099").first()
+    _get_or_create_person(
+        db_session,
+        matricula="20241EWBJ0099",
+        name="Admin Listed Student",
+        cpf="11144477735",
     )
-    if not person:
-        person = Pessoa(
-            matricula="20241EWBJ0099",
-            nome="Admin Listed Student",
-            cpf="11144477735",
-            tipo_vinculo="ALUNO",
-        )
-        db_session.add(person)
-        db_session.commit()
 
     client.app.dependency_overrides[get_current_user] = _override_admin
     try:
@@ -134,6 +143,122 @@ def test_update_person_returns_404_when_matricula_not_found(client):
         client.app.dependency_overrides.pop(get_current_user, None)
 
 
+def test_update_person_returns_200_and_ignores_null_non_nullable_fields(
+    client, db_session
+):
+    _get_or_create_person(
+        db_session,
+        matricula="20241EWBJ0101",
+        name="Non Null Student",
+        cpf="10000000019",
+    )
+
+    client.app.dependency_overrides[get_current_user] = _override_admin
+    try:
+        response = client.patch(
+            "/api/v1/pessoas/20241EWBJ0101",
+            json={
+                "nome": None,
+                "cpf": None,
+                "tipo_vinculo": None,
+                "curso": "Agroecology",
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["nome"] == "Non Null Student"
+        assert data["cpf"] == "10000000019"
+        assert data["tipo_vinculo"] == "ALUNO"
+        assert data["curso"] == "Agroecology"
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_update_person_returns_200_when_updating_to_unique_cpf(client, db_session):
+    _get_or_create_person(
+        db_session,
+        matricula="20241EWBJ0102",
+        name="CPF Swap Student",
+        cpf="20000000027",
+    )
+
+    client.app.dependency_overrides[get_current_user] = _override_admin
+    try:
+        response = client.patch(
+            "/api/v1/pessoas/20241EWBJ0102",
+            json={"cpf": "300.000.000-35"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["cpf"] == "30000000035"
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_update_person_returns_400_when_cpf_belongs_to_another_person(
+    client, db_session
+):
+    _get_or_create_person(
+        db_session,
+        matricula="20241EWBJ0103",
+        name="CPF Owner Student",
+        cpf="39053344705",
+        email="dono_cpf@discente.ifpe.edu.br",
+    )
+    _get_or_create_person(
+        db_session,
+        matricula="20241EWBJ0104",
+        name="CPF Target Student",
+        cpf="98765432100",
+        email="alvo_cpf@discente.ifpe.edu.br",
+    )
+
+    client.app.dependency_overrides[get_current_user] = _override_admin
+    try:
+        response = client.patch(
+            "/api/v1/pessoas/20241EWBJ0104",
+            json={"cpf": "390.533.447-05"},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert (
+            response.json()["detail"] == "Já existe uma pessoa cadastrada com este CPF."
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_update_person_returns_400_when_email_belongs_to_another_person(
+    client, db_session
+):
+    _get_or_create_person(
+        db_session,
+        matricula="20241EWBJ0103",
+        name="CPF Owner Student",
+        cpf="39053344705",
+        email="dono_cpf@discente.ifpe.edu.br",
+    )
+    _get_or_create_person(
+        db_session,
+        matricula="20241EWBJ0104",
+        name="CPF Target Student",
+        cpf="98765432100",
+        email="alvo_cpf@discente.ifpe.edu.br",
+    )
+
+    client.app.dependency_overrides[get_current_user] = _override_admin
+    try:
+        response = client.patch(
+            "/api/v1/pessoas/20241EWBJ0104",
+            json={"email": "dono_cpf@discente.ifpe.edu.br"},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert (
+            response.json()["detail"]
+            == "Já existe uma pessoa cadastrada com este e-mail."
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
+
+
 def test_pessoa_base_cpf_strips_punctuation_for_valid_cpf():
     person = PessoaBase(
         matricula="20241INBJ0001",
@@ -161,6 +286,36 @@ def test_pessoa_base_cpf_raises_validation_error_when_first_digit_invalid():
 def test_pessoa_base_cpf_raises_validation_error_when_second_digit_invalid():
     with pytest.raises(ValidationError, match="segundo dígito verificador"):
         PessoaBase(matricula="20241INBJ0001", nome="Test", cpf="123.456.700-89")
+
+
+def test_pessoa_update_cpf_validator_accepts_none_and_cleans_formatted_cpf():
+    payload_none = PessoaUpdate(cpf=None)
+    assert payload_none.cpf is None
+
+    payload_valid = PessoaUpdate(cpf="123.456.700-88")
+    assert payload_valid.cpf == "12345670088"
+
+
+def test_pessoa_update_cpf_raises_validation_error_when_cpf_is_invalid():
+    with pytest.raises(ValidationError, match="11 dígitos"):
+        PessoaUpdate(cpf="12345")
+
+
+def test_pessoa_update_empty_str_validator_coerces_blank_strings_to_none():
+    payload = PessoaUpdate(
+        email="   ",
+        curso="",
+        foto_url=" ",
+        status_matricula="",
+        modalidade="",
+        data_nascimento="",
+    )
+    assert payload.email is None
+    assert payload.curso is None
+    assert payload.foto_url is None
+    assert payload.status_matricula is None
+    assert payload.modalidade is None
+    assert payload.data_nascimento is None
 
 
 def test_pessoa_response_excludes_senha_hash_from_serialization_and_api(
@@ -241,7 +396,7 @@ def test_upload_people_returns_202_and_processes_csv_in_background(
     existing_person = Pessoa(
         matricula="20261API0001",
         nome="Before Router",
-        cpf="10000000019",
+        cpf="91000979776",
         tipo_vinculo=TipoVinculo.ALUNO,
         curso="Old",
         email="before_api@discente.ifpe.edu.br",
@@ -252,9 +407,9 @@ def test_upload_people_returns_202_and_processes_csv_in_background(
 
     csv_payload = (
         "matricula,nome,cpf,tipo_vinculo,curso,email\n"
-        "20261API0001,After Router,10000000019,PROFESSOR,"
+        "20261API0001,After Router,91000979776,PROFESSOR,"
         "Computing,after_api@ifpe.edu.br\n"
-        "20261API0002,New Person API,20000000027,ALUNO,"
+        "20261API0002,New Person API,91000989496,ALUNO,"
         "Farming,new_api@discente.ifpe.edu.br\n"
     ).encode("utf-8")
 
@@ -286,7 +441,7 @@ def test_upload_people_returns_202_and_processes_csv_in_background(
         db_session.query(Pessoa).filter(Pessoa.matricula == "20261API0002").one()
     )
     assert created_person.nome == "New Person API"
-    assert created_person.cpf == "20000000027"
+    assert created_person.cpf == "91000989496"
     assert created_person.status is True
 
 
@@ -320,7 +475,7 @@ def test_upload_people_returns_202_and_processes_xlsx_and_parquet_in_background(
         [
             "20261API0003",
             "XLSX Router Person",
-            "30000000035",
+            "91000999106",
             "ALUNO",
             "ADS",
             "xlsx_api@discente.ifpe.edu.br",
@@ -333,7 +488,7 @@ def test_upload_people_returns_202_and_processes_xlsx_and_parquet_in_background(
         {
             "matricula": ["20261API0004"],
             "nome": ["Parquet Router Person"],
-            "cpf": ["39053344705"],
+            "cpf": ["91001008898"],
             "tipo_vinculo": ["SERVIDOR"],
             "curso": [None],
             "email": ["parquet_api@belojardim.ifpe.edu.br"],
@@ -375,7 +530,7 @@ def test_upload_people_returns_202_and_processes_xlsx_and_parquet_in_background(
         db_session.query(Pessoa).filter(Pessoa.matricula == "20261API0003").one()
     )
     assert xlsx_person.nome == "XLSX Router Person"
-    assert xlsx_person.cpf == "30000000035"
+    assert xlsx_person.cpf == "91000999106"
 
     parquet_person = (
         db_session.query(Pessoa).filter(Pessoa.matricula == "20261API0004").one()

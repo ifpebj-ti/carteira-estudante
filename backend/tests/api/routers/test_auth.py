@@ -1,12 +1,15 @@
 import datetime
+from unittest.mock import AsyncMock
 
 import jwt
 import pytest
 from fastapi import HTTPException, status
+from fastapi.responses import RedirectResponse
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.api.dependencies.security import RoleChecker, get_current_user
+from app.api.routers import auth as auth_router
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 from app.models.enums import PerfilOperador, TipoVinculo
@@ -219,6 +222,25 @@ def test_login_manual_returns_401_when_operator_has_empty_password_hash(
     response = client.post(
         "/api/v1/auth/login",
         json={"login": "sso_sem_senha", "senha": "Mudar@123"},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json()["detail"] == "Credenciais inválidas"
+
+
+def test_login_manual_returns_401_when_stored_password_hash_is_malformed(
+    client: TestClient, db_session
+):
+    _create_operator(
+        db_session,
+        name="Corrupted Hash Operator",
+        login="operador_hash_invalido",
+        password_hash="not-a-valid-bcrypt-hash",  # noqa: S106
+        role=PerfilOperador.PORTEIRO,
+    )
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"login": "operador_hash_invalido", "senha": "Mudar@123"},
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json()["detail"] == "Credenciais inválidas"
@@ -438,7 +460,7 @@ def test_login_person_returns_200_for_all_affiliations(
     assert data["role"] == affiliation.value
 
 
-def test_login_person_returns_401_and_403_for_invalid_credentials_and_status(
+def test_login_person_returns_401_when_password_is_incorrect(
     client: TestClient, db_session
 ):
     _create_person(
@@ -449,6 +471,17 @@ def test_login_person_returns_401_and_403_for_invalid_credentials_and_status(
         email="errada@discente.ifpe.edu.br",
         password_hash=get_password_hash("CorrectPass@123"),
     )
+
+    resp = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": "20241EWBJ9010", "senha": "Wrong"},
+    )
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_login_returns_401_when_person_has_no_password_hash(
+    client: TestClient, db_session
+):
     _create_person(
         db_session,
         cpf_seed=11,
@@ -457,15 +490,77 @@ def test_login_person_returns_401_and_403_for_invalid_credentials_and_status(
         email="semhash@discente.ifpe.edu.br",
         password_hash=None,
     )
+
+    resp = client.post(
+        "/api/v1/auth/login",
+        json={"login": "20241EWBJ9011", "senha": "Mudar@123"},
+    )
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_login_returns_401_when_unified_login_identifier_is_blank(
+    client: TestClient,
+):
+    resp = client.post(
+        "/api/v1/auth/login",
+        json={"login": "   ", "senha": "Mudar@123"},
+    )
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_login_person_returns_401_when_login_identifier_is_blank(
+    client: TestClient,
+):
+    resp = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": "   ", "senha": "Mudar@123"},
+    )
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_login_person_returns_401_when_inactive_person_uses_wrong_password(
+    client: TestClient, db_session
+):
     _create_person(
         db_session,
         cpf_seed=12,
-        name="Inactive Student",
+        name="Inactive Wrong Password Student",
         matricula="20241EWBJ9012",
         email="inativo@discente.ifpe.edu.br",
         password_hash=get_password_hash("Mudar@123"),
         is_active=False,
     )
+
+    resp = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": "20241EWBJ9012", "senha": "Wrong"},
+    )
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_login_person_returns_403_when_person_is_inactive(
+    client: TestClient, db_session
+):
+    _create_person(
+        db_session,
+        cpf_seed=14,
+        name="Inactive Student",
+        matricula="20241EWBJ9014",
+        email="inativo_ok@discente.ifpe.edu.br",
+        password_hash=get_password_hash("Mudar@123"),
+        is_active=False,
+    )
+
+    resp = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": "20241EWBJ9014", "senha": "Mudar@123"},
+    )
+    assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_login_person_returns_401_when_person_is_soft_deleted(
+    client: TestClient, db_session
+):
     deleted_person = _create_person(
         db_session,
         cpf_seed=13,
@@ -477,41 +572,11 @@ def test_login_person_returns_401_and_403_for_invalid_credentials_and_status(
     deleted_person.deleted_at = datetime.datetime.now(datetime.timezone.utc)
     db_session.commit()
 
-    wrong_pwd_resp = client.post(
-        "/api/v1/auth/pessoa/login",
-        json={"login": "20241EWBJ9010", "senha": "Wrong"},
-    )
-    assert wrong_pwd_resp.status_code == status.HTTP_401_UNAUTHORIZED
-
-    no_hash_resp = client.post(
-        "/api/v1/auth/login",
-        json={"login": "20241EWBJ9011", "senha": "Mudar@123"},
-    )
-    assert no_hash_resp.status_code == status.HTTP_401_UNAUTHORIZED
-
-    blank_login_resp = client.post(
-        "/api/v1/auth/login",
-        json={"login": "   ", "senha": "Mudar@123"},
-    )
-    assert blank_login_resp.status_code == status.HTTP_401_UNAUTHORIZED
-
-    inactive_wrong_pwd_resp = client.post(
-        "/api/v1/auth/pessoa/login",
-        json={"login": "20241EWBJ9012", "senha": "Wrong"},
-    )
-    assert inactive_wrong_pwd_resp.status_code == status.HTTP_401_UNAUTHORIZED
-
-    inactive_valid_pwd_resp = client.post(
-        "/api/v1/auth/pessoa/login",
-        json={"login": "20241EWBJ9012", "senha": "Mudar@123"},
-    )
-    assert inactive_valid_pwd_resp.status_code == status.HTTP_403_FORBIDDEN
-
-    deleted_resp = client.post(
+    resp = client.post(
         "/api/v1/auth/pessoa/login",
         json={"login": "20241EWBJ9013", "senha": "Mudar@123"},
     )
-    assert deleted_resp.status_code == status.HTTP_401_UNAUTHORIZED
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 def test_login_manual_operator_precedence_does_not_fallback_to_person(
@@ -556,20 +621,15 @@ def test_login_manual_operator_precedence_does_not_fallback_to_person(
     assert person_resp.json()["account_type"] == "pessoa"
 
 
-def test_get_person_me_enforces_token_isolation_and_qr_history(
+def test_get_person_me_returns_401_when_unauthenticated(client: TestClient):
+    client.cookies.clear()
+    response = client.get("/api/v1/auth/pessoa/me")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_get_person_me_returns_200_with_cookie_bearer_and_scan_history(
     client: TestClient, db_session
 ):
-    assert (
-        client.get("/api/v1/auth/pessoa/me").status_code == status.HTTP_401_UNAUTHORIZED
-    )
-
-    operator = _create_operator(
-        db_session,
-        name="Isolation Admin",
-        login="admin_isolamento",
-        password_hash=get_password_hash("Mudar@123"),
-        role=PerfilOperador.ADMIN,
-    )
     person = _create_person(
         db_session,
         cpf_seed=30,
@@ -579,11 +639,6 @@ def test_get_person_me_enforces_token_isolation_and_qr_history(
         password_hash=get_password_hash("Mudar@123"),
         affiliation=TipoVinculo.ALUNO,
     )
-
-    op_token = client.post(
-        "/api/v1/auth/login",
-        json={"login": operator.login, "senha": "Mudar@123"},
-    ).json()["access_token"]
 
     person_login_resp = client.post(
         "/api/v1/auth/pessoa/login",
@@ -622,6 +677,7 @@ def test_get_person_me_enforces_token_isolation_and_qr_history(
         json={"login": doorman.login, "senha": "Mudar@123"},
     ).json()["access_token"]
     client.cookies.clear()
+
     scan_resp = client.post(
         "/api/v1/movimentacao/scan",
         json={"qr_code_hash": me_data["qr_token"], "local_acesso": "PORTARIA"},
@@ -642,6 +698,23 @@ def test_get_person_me_enforces_token_isolation_and_qr_history(
     assert "operador_nome" not in movements[0]
     assert "operador_id" not in movements[0]
 
+
+def test_decode_qr_token_raises_401_when_given_person_session_token(
+    client: TestClient, db_session
+):
+    person = _create_person(
+        db_session,
+        cpf_seed=31,
+        name="Student Token Isolation",
+        matricula="20241EWBJ9031",
+        email="isolation31@discente.ifpe.edu.br",
+        password_hash=get_password_hash("Mudar@123"),
+    )
+    person_token = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": person.matricula, "senha": "Mudar@123"},
+    ).json()["access_token"]
+    client.cookies.clear()
     with pytest.raises(HTTPException) as qr_exc:
         decode_qr_token(person_token)
     assert qr_exc.value.status_code == status.HTTP_401_UNAUTHORIZED
@@ -661,6 +734,23 @@ def test_get_person_me_enforces_token_isolation_and_qr_history(
         == status.HTTP_403_FORBIDDEN
     )
 
+
+def test_get_person_me_returns_403_when_called_with_operator_token(
+    client: TestClient, db_session
+):
+    operator = _create_operator(
+        db_session,
+        name="Isolation Admin",
+        login="admin_isolamento_32",
+        password_hash=get_password_hash("Mudar@123"),
+        role=PerfilOperador.ADMIN,
+    )
+    op_token = client.post(
+        "/api/v1/auth/login",
+        json={"login": operator.login, "senha": "Mudar@123"},
+    ).json()["access_token"]
+    client.cookies.clear()
+
     assert (
         client.get(
             "/api/v1/auth/pessoa/me",
@@ -669,7 +759,11 @@ def test_get_person_me_enforces_token_isolation_and_qr_history(
         == status.HTTP_403_FORBIDDEN
     )
 
-    qr_only_token = generate_qr_token(person.id)
+
+def test_auth_me_routes_return_401_when_called_with_qr_only_token(
+    client: TestClient,
+):
+    qr_only_token = generate_qr_token(999)
     assert (
         client.get(
             "/api/v1/auth/me",
@@ -685,23 +779,211 @@ def test_get_person_me_enforces_token_isolation_and_qr_history(
         == status.HTTP_401_UNAUTHORIZED
     )
 
+
+def test_get_person_me_returns_403_when_person_is_deactivated_after_login(
+    client: TestClient, db_session
+):
+    person = _create_person(
+        db_session,
+        cpf_seed=33,
+        name="Student Deactivated After Login",
+        matricula="20241EWBJ9033",
+        email="desativado33@discente.ifpe.edu.br",
+        password_hash=get_password_hash("Mudar@123"),
+    )
+    person_token = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": person.matricula, "senha": "Mudar@123"},
+    ).json()["access_token"]
+    client.cookies.clear()
+
     person.status = False
     db_session.commit()
-    assert (
-        client.get(
-            "/api/v1/auth/pessoa/me",
-            headers={"Authorization": f"Bearer {person_token}"},
-        ).status_code
-        == status.HTTP_403_FORBIDDEN
-    )
 
-    person.status = True
+    response = client.get(
+        "/api/v1/auth/pessoa/me",
+        headers={"Authorization": f"Bearer {person_token}"},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_person_me_returns_401_when_person_is_soft_deleted_after_login(
+    client: TestClient, db_session
+):
+    person = _create_person(
+        db_session,
+        cpf_seed=34,
+        name="Student Deleted After Login",
+        matricula="20241EWBJ9034",
+        email="deletado34@discente.ifpe.edu.br",
+        password_hash=get_password_hash("Mudar@123"),
+    )
+    person_token = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": person.matricula, "senha": "Mudar@123"},
+    ).json()["access_token"]
+    client.cookies.clear()
+
     person.deleted_at = datetime.datetime.now(datetime.timezone.utc)
     db_session.commit()
-    assert (
-        client.get(
-            "/api/v1/auth/pessoa/me",
-            headers={"Authorization": f"Bearer {person_token}"},
-        ).status_code
-        == status.HTTP_401_UNAUTHORIZED
+
+    response = client.get(
+        "/api/v1/auth/pessoa/me",
+        headers={"Authorization": f"Bearer {person_token}"},
     )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_login_google_redirects_with_http_callback_in_development(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
+    mock_authorize = AsyncMock(
+        return_value=RedirectResponse("https://accounts.google.com/o/oauth2/v2/auth")
+    )
+    monkeypatch.setattr(auth_router.oauth.google, "authorize_redirect", mock_authorize)
+
+    response = client.get("/api/v1/auth/login/google", follow_redirects=False)
+
+    assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+    mock_authorize.assert_awaited_once()
+    redirect_uri = mock_authorize.await_args.args[1]
+    assert redirect_uri.startswith("http://")
+    assert redirect_uri.endswith("/api/v1/auth/callback")
+
+
+def test_login_google_forces_https_callback_uri_in_production(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    mock_authorize = AsyncMock(
+        return_value=RedirectResponse("https://accounts.google.com/o/oauth2/v2/auth")
+    )
+    monkeypatch.setattr(auth_router.oauth.google, "authorize_redirect", mock_authorize)
+
+    response = client.get("/api/v1/auth/login/google", follow_redirects=False)
+
+    assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+    mock_authorize.assert_awaited_once()
+    redirect_uri = mock_authorize.await_args.args[1]
+    assert redirect_uri.startswith("https://")
+    assert redirect_uri.endswith("/api/v1/auth/callback")
+
+
+def test_auth_callback_returns_400_when_google_token_exchange_fails(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(
+        auth_router.oauth.google,
+        "authorize_access_token",
+        AsyncMock(side_effect=RuntimeError("OAuth failure")),
+    )
+
+    response = client.get("/api/v1/auth/callback")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Erro ao obter dados do Google: OAuth failure" in response.json()["detail"]
+
+
+def test_auth_callback_returns_400_when_google_userinfo_lacks_email(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(
+        auth_router.oauth.google,
+        "authorize_access_token",
+        AsyncMock(return_value={"userinfo": {}}),
+    )
+
+    response = client.get("/api/v1/auth/callback")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == "Não foi possível recuperar o email do Google."
+
+
+def test_auth_callback_returns_403_when_google_email_is_not_registered(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(
+        auth_router.oauth.google,
+        "authorize_access_token",
+        AsyncMock(return_value={"userinfo": {"email": "nao_existe@ifpe.edu.br"}}),
+    )
+
+    response = client.get("/api/v1/auth/callback")
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert (
+        response.json()["detail"]
+        == "Acesso Negado. Este email não está cadastrado como Operador ou Admin."
+    )
+
+
+def test_auth_callback_returns_403_when_google_operator_is_inactive(
+    client: TestClient, db_session, monkeypatch
+):
+    _create_operator(
+        db_session,
+        name="Inactive SSO Operator",
+        login="sso_inativo@ifpe.edu.br",
+        password_hash="",
+        role=PerfilOperador.ADMIN,
+        is_active=False,
+    )
+    monkeypatch.setattr(
+        auth_router.oauth.google,
+        "authorize_access_token",
+        AsyncMock(return_value={"userinfo": {"email": "sso_inativo@ifpe.edu.br"}}),
+    )
+
+    response = client.get("/api/v1/auth/callback")
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"] == "Acesso Negado. Usuário inativo."
+
+
+def test_auth_callback_returns_307_and_sets_cookie_for_valid_operator(
+    client: TestClient, db_session, monkeypatch
+):
+    operator = _create_operator(
+        db_session,
+        name="Valid SSO Operator",
+        login="sso_valido@ifpe.edu.br",
+        password_hash="",
+        role=PerfilOperador.ADMIN,
+        is_active=True,
+    )
+    monkeypatch.setattr(
+        auth_router.oauth.google,
+        "authorize_access_token",
+        AsyncMock(return_value={"userinfo": {"email": operator.login}}),
+    )
+
+    response = client.get("/api/v1/auth/callback", follow_redirects=False)
+
+    assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+    assert response.headers["location"] == f"{settings.FRONTEND_URL.rstrip('/')}/admin"
+    cookie_token = response.cookies.get("access_token")
+    assert cookie_token is not None
+
+    claims = jwt.decode(
+        cookie_token,
+        settings.SECRET_KEY,
+        algorithms=[settings.ALGORITHM],
+    )
+    assert claims["sub"] == str(operator.id)
+    assert claims["email"] == operator.login
+    assert claims["account_type"] == "operador"
+
+
+def test_logout_returns_307_redirect_and_clears_access_token_cookie(
+    client: TestClient,
+):
+    client.cookies.set("access_token", "dummy-session-cookie")
+
+    response = client.get("/api/v1/auth/logout", follow_redirects=False)
+
+    assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+    assert response.headers["location"] == f"{settings.FRONTEND_URL.rstrip('/')}/"
+    set_cookie_header = response.headers.get("set-cookie", "")
+    assert "access_token=" in set_cookie_header
+    assert "Max-Age=0" in set_cookie_header

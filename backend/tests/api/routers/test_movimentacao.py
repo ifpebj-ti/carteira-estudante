@@ -21,9 +21,7 @@ def override_get_current_user():
     )
 
 
-def test_scan_qr_code_returns_200_and_records_movement_for_active_person(
-    client: TestClient, db_session
-):
+def _ensure_scan_fixtures(db_session):
     person = db_session.query(Pessoa).filter(Pessoa.id == 1).first()
     if not person:
         person = Pessoa(
@@ -49,16 +47,21 @@ def test_scan_qr_code_returns_200_and_records_movement_for_active_person(
 
     db_session.commit()
 
+
+def test_scan_qr_code_returns_200_and_records_movement_for_active_person(
+    client: TestClient, db_session
+):
+    _ensure_scan_fixtures(db_session)
     token = generate_qr_token(person_id=1)
 
     client.app.dependency_overrides[get_current_user] = override_get_current_user
-
-    response = client.post(
-        "/api/v1/movimentacao/scan",
-        json={"qr_code_hash": token, "local_acesso": "PORTARIA"},
-    )
-
-    client.app.dependency_overrides.clear()
+    try:
+        response = client.post(
+            "/api/v1/movimentacao/scan",
+            json={"qr_code_hash": token, "local_acesso": "PORTARIA"},
+        )
+    finally:
+        client.app.dependency_overrides.clear()
 
     assert response.status_code == 200
     data = response.json()
@@ -73,11 +76,13 @@ def test_scan_qr_code_returns_200_and_records_movement_for_active_person(
 
 def test_scan_qr_code_returns_401_when_token_is_invalid(client: TestClient):
     client.app.dependency_overrides[get_current_user] = override_get_current_user
-    response = client.post(
-        "/api/v1/movimentacao/scan",
-        json={"qr_code_hash": "invalid-token", "local_acesso": "PORTARIA"},
-    )
-    client.app.dependency_overrides.clear()
+    try:
+        response = client.post(
+            "/api/v1/movimentacao/scan",
+            json={"qr_code_hash": "invalid-token", "local_acesso": "PORTARIA"},
+        )
+    finally:
+        client.app.dependency_overrides.clear()
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Forged or invalid QR Code."
@@ -87,11 +92,13 @@ def test_scan_qr_code_returns_404_when_person_is_not_found(client: TestClient):
     token = generate_qr_token(person_id=9999)
 
     client.app.dependency_overrides[get_current_user] = override_get_current_user
-    response = client.post(
-        "/api/v1/movimentacao/scan",
-        json={"qr_code_hash": token, "local_acesso": "PORTARIA"},
-    )
-    client.app.dependency_overrides.clear()
+    try:
+        response = client.post(
+            "/api/v1/movimentacao/scan",
+            json={"qr_code_hash": token, "local_acesso": "PORTARIA"},
+        )
+    finally:
+        client.app.dependency_overrides.clear()
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Pessoa não encontrado."
@@ -130,13 +137,17 @@ def test_scan_qr_code_returns_200_with_status_false_when_person_is_inactive(
     assert data["movement_type"] == SentidoMovimentacao.ENTRADA.value
 
 
-def test_list_movement_history_returns_401_unauthenticated_and_200_for_operator(
-    client: TestClient, db_session
+def test_list_movement_history_returns_401_when_unauthenticated(
+    client: TestClient,
 ):
     client.cookies.clear()
-    unauth_resp = client.get("/api/v1/movimentacao/historico")
-    assert unauth_resp.status_code == 401
+    response = client.get("/api/v1/movimentacao/historico")
+    assert response.status_code == 401
 
+
+def test_list_movement_history_returns_200_and_omits_pii_for_operator(
+    client: TestClient, db_session
+):
     person = Pessoa(
         matricula="20241EWBJ0097",
         nome="History Student",
