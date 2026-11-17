@@ -25,7 +25,7 @@ router = APIRouter()
 
 
 def _build_scan_response(
-    pessoa: Pessoa,
+    person: Pessoa,
     movement_type: SentidoMovimentacao | str,
     request: ScanRequest,
     *,
@@ -33,9 +33,9 @@ def _build_scan_response(
     created_at: datetime.datetime,
 ) -> ScanResponse:
     return ScanResponse(
-        student_name=pessoa.nome,
-        student_photo_url=pessoa.foto_url,
-        student_tipo_vinculo=pessoa.tipo_vinculo,
+        student_name=person.nome,
+        student_photo_url=person.foto_url,
+        student_tipo_vinculo=person.tipo_vinculo,
         movement_type=movement_type,
         local_acesso=request.local_acesso,
         status=access_granted,
@@ -48,13 +48,12 @@ def _build_scan_response(
     response_model=list[MovimentacaoHistoricoItem],
     summary="Listar histórico recente de movimentações",
 )
-def list_movimentacoes_historico(
+def list_movement_history(
     limit: int = Query(default=30, ge=1, le=100),
     current_user: UsuarioSistema = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[MovimentacaoHistoricoItem]:
-    """Retorna as movimentações mais recentes para exibição no leitor da portaria."""
-    movs = (
+    movements = (
         db.query(Movimentacao)
         .options(joinedload(Movimentacao.pessoa))
         .order_by(Movimentacao.data_hora.desc())
@@ -63,15 +62,17 @@ def list_movimentacoes_historico(
     )
     return [
         MovimentacaoHistoricoItem(
-            id=mov.id,
-            pessoa_id=mov.pessoa_id,
-            tipo=mov.tipo,
-            local_acesso=mov.local_acesso,
-            data_hora=mov.data_hora,
-            pessoa_nome=mov.pessoa.nome if mov.pessoa else "Pessoa removida",
-            pessoa_tipo_vinculo=mov.pessoa.tipo_vinculo if mov.pessoa else None,
+            id=movement.id,
+            pessoa_id=movement.pessoa_id,
+            tipo=movement.tipo,
+            local_acesso=movement.local_acesso,
+            data_hora=movement.data_hora,
+            pessoa_nome=movement.pessoa.nome if movement.pessoa else "Pessoa removida",
+            pessoa_tipo_vinculo=(
+                movement.pessoa.tipo_vinculo if movement.pessoa else None
+            ),
         )
-        for mov in movs
+        for movement in movements
     ]
 
 
@@ -86,56 +87,48 @@ def scan_qr_code(
     current_user: UsuarioSistema = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ScanResponse:
-    # 1. Decode JWT (Raises 400 if expired or invalid)
-    pessoa_id = decode_qr_token(request.qr_code_hash)
+    person_id = decode_qr_token(request.qr_code_hash)
 
-    # 2. Fetch Pessoa (ignora registros removidos logicamente)
-    pessoa = (
+    person = (
         db.query(Pessoa)
-        .filter(Pessoa.id == pessoa_id, Pessoa.deleted_at.is_(None))
+        .filter(Pessoa.id == person_id, Pessoa.deleted_at.is_(None))
         .first()
     )
-    if not pessoa:
+    if not person:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pessoa não encontrado.",
         )
 
-    # 3. Validate Status
     try:
-        validate_student_status(pessoa)
+        validate_student_status(person)
     except HTTPException:
-        # According to the plan, if access is denied, we return status=False in payload
-        # instead of failing the HTTP request, so the portaria app can
-        # show a red screen.
-        expected_movement = determine_next_movement_type(pessoa, db)
+        # Gatekeeper UI renders an access-denied screen with status=False on payload.
+        expected_movement = determine_next_movement_type(person, db)
         return _build_scan_response(
-            pessoa,
+            person,
             expected_movement,
             request,
             access_granted=False,
             created_at=datetime.datetime.now(datetime.timezone.utc),
         )
 
-    # 4. Determine Movement (Entrada/Saída)
-    movement_type = determine_next_movement_type(pessoa, db)
+    movement_type = determine_next_movement_type(person, db)
 
-    # 5. Register Movement
-    nova_movimentacao = Movimentacao(
-        pessoa_id=pessoa.id,
+    new_movement = Movimentacao(
+        pessoa_id=person.id,
         operador_id=current_user.id,
         tipo=movement_type,
         local_acesso=request.local_acesso,
     )
-    db.add(nova_movimentacao)
+    db.add(new_movement)
     db.commit()
-    db.refresh(nova_movimentacao)
+    db.refresh(new_movement)
 
-    # 6. Return Success Response
     return _build_scan_response(
-        pessoa,
+        person,
         movement_type,
         request,
         access_granted=True,
-        created_at=nova_movimentacao.data_hora,
+        created_at=new_movement.data_hora,
     )

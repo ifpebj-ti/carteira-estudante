@@ -24,14 +24,14 @@ def _validate_cpf_value(v: str) -> str:
         raise ValueError("CPF inválido: todos os dígitos são iguais.")
 
     # d) Calcula e valida matematicamente o primeiro e o segundo dígito verificador
-    resto_1 = sum(int(clean_cpf[i]) * (10 - i) for i in range(9)) % 11
-    digito_1 = 0 if resto_1 < 2 else 11 - resto_1
-    if int(clean_cpf[9]) != digito_1:
+    first_remainder = sum(int(clean_cpf[i]) * (10 - i) for i in range(9)) % 11
+    first_digit = 0 if first_remainder < 2 else 11 - first_remainder
+    if int(clean_cpf[9]) != first_digit:
         raise ValueError("CPF inválido: primeiro dígito verificador incorreto.")
 
-    resto_2 = sum(int(clean_cpf[i]) * (11 - i) for i in range(10)) % 11
-    digito_2 = 0 if resto_2 < 2 else 11 - resto_2
-    if int(clean_cpf[10]) != digito_2:
+    second_remainder = sum(int(clean_cpf[i]) * (11 - i) for i in range(10)) % 11
+    second_digit = 0 if second_remainder < 2 else 11 - second_remainder
+    if int(clean_cpf[10]) != second_digit:
         raise ValueError("CPF inválido: segundo dígito verificador incorreto.")
 
     # e) Retorna o CPF limpo (apenas números) em caso de sucesso

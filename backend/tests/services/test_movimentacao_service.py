@@ -46,7 +46,7 @@ def test_determine_next_movement_type_returns_saida_for_internal_first_access():
     assert movement_type == SentidoMovimentacao.SAIDA
 
 
-def test_determine_next_movement_type_returns_saida_after_last_entrada():
+def test_determine_next_movement_type_returns_saida_after_previous_entrada():
     db_mock = MagicMock()
     last_mov = Movimentacao(tipo=SentidoMovimentacao.ENTRADA, data_hora=datetime.now())
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value
@@ -57,7 +57,7 @@ def test_determine_next_movement_type_returns_saida_after_last_entrada():
     assert movement_type == SentidoMovimentacao.SAIDA
 
 
-def test_determine_next_movement_type_returns_entrada_after_last_saida():
+def test_determine_next_movement_type_returns_entrada_after_previous_saida():
     db_mock = MagicMock()
     last_mov = Movimentacao(tipo=SentidoMovimentacao.SAIDA, data_hora=datetime.now())
     mock_query = db_mock.query.return_value.filter.return_value.filter.return_value

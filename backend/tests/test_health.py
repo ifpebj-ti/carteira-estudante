@@ -8,7 +8,7 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_root_returns_200_and_api_status_metadata():
+def test_root_returns_200_and_api_metadata():
 
     response = client.get("/")
     assert response.status_code == 200
