@@ -17,12 +17,83 @@ from app.models.enums import PerfilOperador
 from app.models.pessoa import Pessoa
 from app.schemas.pessoa import PessoaDetailResponse, PessoaResponse, PessoaUpdate
 from app.services.movimentacao_service import build_movement_responses
+from app.services.photo_upload_service import process_photo_upload_in_background
 from app.services.upload_service import (
     ALLOWED_UPLOAD_EXTENSIONS,
     process_upload_in_background,
 )
 
+ALLOWED_PHOTO_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp"})
+ALLOWED_PHOTO_CONTENT_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
+MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024
+
 router = APIRouter(prefix="/pessoas", tags=["Pessoas"])
+
+
+def _validate_photo_metadata(file: UploadFile) -> tuple[str, str]:
+    filename = (file.filename or "").strip()
+    file_extension = Path(filename).suffix.lower()
+    if file_extension not in ALLOWED_PHOTO_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image extension. Allowed: .jpg, .jpeg, .png, .webp.",
+        )
+
+    content_type = (file.content_type or "").split(";", 1)[0].strip().lower()
+    if content_type not in ALLOWED_PHOTO_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image content type.",
+        )
+    return filename, content_type
+
+
+@router.post(
+    "/{pessoa_id}/photo",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Async profile photo upload",
+    dependencies=[Depends(RoleChecker([PerfilOperador.ADMIN]))],
+)
+async def upload_photo(
+    pessoa_id: int,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    """Validate an uploaded photo and enqueue storage upload in the background."""
+    person = (
+        db.query(Pessoa)
+        .filter(Pessoa.id == pessoa_id, Pessoa.deleted_at.is_(None))
+        .first()
+    )
+    if not person:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Person not found.",
+        )
+
+    filename, content_type = _validate_photo_metadata(file)
+    file_bytes = await file.read()
+    await file.close()
+    if not file_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded image file is empty.",
+        )
+    if len(file_bytes) > MAX_PHOTO_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded image exceeds the 5 MB size limit.",
+        )
+
+    background_tasks.add_task(
+        process_photo_upload_in_background,
+        person.id,
+        file_bytes,
+        filename,
+        content_type,
+    )
+    return {"message": "Photo upload received and processing started in background"}
 
 
 @router.post(
