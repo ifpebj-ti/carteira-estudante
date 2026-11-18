@@ -57,6 +57,44 @@ def _decode_token_payload(request: Request) -> tuple[dict, int]:
     return payload, parsed_id
 
 
+def _load_operator(db: Session, operator_id: int) -> UsuarioSistema:
+    operator = (
+        db.query(UsuarioSistema)
+        .filter(UsuarioSistema.id == operator_id, UsuarioSistema.deleted_at.is_(None))
+        .first()
+    )
+    if not operator:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuário não encontrado.",
+        )
+    if not operator.status:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuário inativo.",
+        )
+    return operator
+
+
+def _load_person(db: Session, person_id: int) -> Pessoa:
+    person = (
+        db.query(Pessoa)
+        .filter(Pessoa.id == person_id, Pessoa.deleted_at.is_(None))
+        .first()
+    )
+    if not person:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Titular não encontrado.",
+        )
+    if not person.status:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Carteira digital inativa.",
+        )
+    return person
+
+
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> UsuarioSistema:
     payload, user_id = _decode_token_payload(request)
     account_type = payload.get("account_type")
@@ -77,23 +115,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Usuario
             detail="Token inválido.",
         )
 
-    operator = (
-        db.query(UsuarioSistema)
-        .filter(UsuarioSistema.id == user_id, UsuarioSistema.deleted_at.is_(None))
-        .first()
-    )
-    if not operator:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuário não encontrado.",
-        )
-    if not operator.status:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuário inativo.",
-        )
-
-    return operator
+    return _load_operator(db, user_id)
 
 
 def get_current_person(request: Request, db: Session = Depends(get_db)) -> Pessoa:
@@ -112,23 +134,33 @@ def get_current_person(request: Request, db: Session = Depends(get_db)) -> Pesso
             detail="Token inválido.",
         )
 
-    person = (
-        db.query(Pessoa)
-        .filter(Pessoa.id == person_id, Pessoa.deleted_at.is_(None))
-        .first()
-    )
-    if not person:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Titular não encontrado.",
-        )
-    if not person.status:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Carteira digital inativa.",
-        )
+    return _load_person(db, person_id)
 
-    return person
+
+def get_current_actor(
+    request: Request, db: Session = Depends(get_db)
+) -> UsuarioSistema | Pessoa:
+    """Resolve the active session whether authenticated as an operator or person."""
+    user_override = request.app.dependency_overrides.get(get_current_user)
+    if user_override is not None:
+        return user_override()
+
+    payload, actor_id = _decode_token_payload(request)
+    account_type = payload.get("account_type")
+    if account_type == "pessoa":
+        return _load_person(db, actor_id)
+    if account_type in (None, "operador"):
+        if account_type is None and not (payload.get("role") or payload.get("perfil")):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido.",
+            )
+        return _load_operator(db, actor_id)
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token inválido.",
+    )
 
 
 class RoleChecker:
@@ -161,3 +193,27 @@ def get_current_active_admin(
     current_user: UsuarioSistema = Depends(RoleChecker([PerfilOperador.ADMIN])),
 ) -> UsuarioSistema:
     return current_user
+
+
+def verify_photo_upload_access(
+    pessoa_id: int,
+    actor: UsuarioSistema | Pessoa = Depends(get_current_actor),
+) -> UsuarioSistema | Pessoa:
+    """Allow ADMIN operators for any person, or a person updating their own photo."""
+    if isinstance(actor, Pessoa):
+        if actor.id != pessoa_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso negado: privilégios insuficientes",
+            )
+        return actor
+
+    operator_role = (
+        actor.perfil.value if hasattr(actor.perfil, "value") else actor.perfil
+    )
+    if operator_role != PerfilOperador.ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: privilégios insuficientes",
+        )
+    return actor

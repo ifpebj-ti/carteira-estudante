@@ -5,7 +5,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from app.api.dependencies.security import get_current_active_admin
+from app.api.dependencies.security import get_current_active_admin, get_current_user
 from app.api.routers.auth import create_access_token
 from app.core.config import settings
 from app.core.security import get_password_hash
@@ -169,3 +169,67 @@ def test_get_current_active_admin_returns_user_when_role_is_admin():
 
     result = get_current_active_admin(current_user=admin)
     assert result is admin
+
+
+def test_get_current_actor_rejects_unscoped_or_unknown_tokens_and_loads_operator(
+    client: TestClient, db_session
+):
+    admin = _create_operator(
+        db_session,
+        nome="Actor Admin Security",
+        login="actor_admin_security",
+        perfil=PerfilOperador.ADMIN,
+        ativo=True,
+    )
+    unscoped_token = create_access_token({"sub": "1"})
+    unknown_scope_token = create_access_token(
+        {"sub": "1", "account_type": "unknown_scope"}
+    )
+    valid_admin_token = create_access_token(
+        {
+            "sub": str(admin.id),
+            "role": PerfilOperador.ADMIN.value,
+            "account_type": "operador",
+        }
+    )
+
+    client.app.dependency_overrides.pop(get_current_user, None)
+    for bad_token in (unscoped_token, unknown_scope_token):
+        response = client.post(
+            "/api/v1/pessoas/1/photo",
+            headers={"Authorization": f"Bearer {bad_token}"},
+            files={"file": ("avatar.jpg", b"jpeg-bytes", "image/jpeg")},
+        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    ok_actor_response = client.post(
+        "/api/v1/pessoas/999999/photo",
+        headers={"Authorization": f"Bearer {valid_admin_token}"},
+        files={"file": ("avatar.jpg", b"jpeg-bytes", "image/jpeg")},
+    )
+    assert ok_actor_response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_verify_photo_upload_access_allows_admin_and_self_person():
+    from app.api.dependencies.security import verify_photo_upload_access
+    from app.models.pessoa import Pessoa
+
+    admin = UsuarioSistema(
+        id=1,
+        nome="Admin",
+        login="admin_photo@ifpe.edu.br",
+        senha_hash="hashed_test_secret",  # noqa: S106
+        perfil=PerfilOperador.ADMIN,
+        status=True,
+    )
+    person = Pessoa(
+        id=42,
+        nome="Self Student",
+        cpf="91001018501",
+        matricula="2026SEC0042",
+        tipo_vinculo="ALUNO",
+        status=True,
+    )
+
+    assert verify_photo_upload_access(pessoa_id=999, actor=admin) is admin
+    assert verify_photo_upload_access(pessoa_id=42, actor=person) is person

@@ -396,7 +396,7 @@ def _override_photo_operator(client, *, profile_name: str) -> None:
 
 
 def test_upload_photo_returns_401_when_unauthenticated(client) -> None:
-    client.app.dependency_overrides.clear()
+    client.app.dependency_overrides.pop(get_current_user, None)
     client.cookies.clear()
 
     response = client.post(
@@ -415,13 +415,16 @@ def test_upload_photo_returns_403_when_operator_is_doorman(client) -> None:
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
     finally:
-        client.app.dependency_overrides.clear()
+        client.app.dependency_overrides.pop(get_current_user, None)
 
 
-def test_upload_photo_returns_403_when_authenticated_as_person(
-    client, db_session
+def test_upload_photo_returns_202_when_authenticated_as_self_person(
+    client, db_session, monkeypatch
 ) -> None:
+    from unittest.mock import patch
+
     from app.core.security import get_password_hash
+    from app.services import photo_upload_service
 
     person = _create_photo_test_person(db_session, seed=1)
     person.senha_hash = get_password_hash("Mudar@123")
@@ -434,11 +437,48 @@ def test_upload_photo_returns_403_when_authenticated_as_person(
     assert login_response.status_code == status.HTTP_200_OK
     person_token = login_response.json()["access_token"]
     client.cookies.clear()
-    client.app.dependency_overrides.clear()
+    client.app.dependency_overrides.pop(get_current_user, None)
+
+    monkeypatch.setattr(photo_upload_service, "SessionLocal", TestingSessionLocal)
+    expected_url = "/static/photos/self_avatar.jpg"
+
+    with patch(
+        "app.services.photo_upload_service.upload_photo_to_storage",
+        return_value=expected_url,
+    ):
+        response = client.post(
+            f"/api/v1/pessoas/{person.id}/photo",
+            headers={"Authorization": f"Bearer {person_token}"},
+            files={"file": ("avatar.jpg", b"jpeg-bytes", "image/jpeg")},
+        )
+
+    assert response.status_code == status.HTTP_202_ACCEPTED
+    db_session.refresh(person)
+    assert person.foto_url == expected_url
+
+
+def test_upload_photo_returns_403_when_person_uploads_for_another_person(
+    client, db_session
+) -> None:
+    from app.core.security import get_password_hash
+
+    person_a = _create_photo_test_person(db_session, seed=10)
+    person_b = _create_photo_test_person(db_session, seed=11)
+    person_a.senha_hash = get_password_hash("Mudar@123")
+    db_session.commit()
+
+    login_response = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": person_a.matricula, "senha": "Mudar@123"},
+    )
+    assert login_response.status_code == status.HTTP_200_OK
+    person_a_token = login_response.json()["access_token"]
+    client.cookies.clear()
+    client.app.dependency_overrides.pop(get_current_user, None)
 
     response = client.post(
-        f"/api/v1/pessoas/{person.id}/photo",
-        headers={"Authorization": f"Bearer {person_token}"},
+        f"/api/v1/pessoas/{person_b.id}/photo",
+        headers={"Authorization": f"Bearer {person_a_token}"},
         files={"file": ("avatar.jpg", b"jpeg-bytes", "image/jpeg")},
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -454,7 +494,7 @@ def test_upload_photo_returns_404_when_person_not_found(client) -> None:
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Person not found."
     finally:
-        client.app.dependency_overrides.clear()
+        client.app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_upload_photo_returns_400_when_extension_is_invalid(client, db_session) -> None:
@@ -468,7 +508,7 @@ def test_upload_photo_returns_400_when_extension_is_invalid(client, db_session) 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid image extension" in response.json()["detail"]
     finally:
-        client.app.dependency_overrides.clear()
+        client.app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_upload_photo_returns_400_when_content_type_is_invalid(
@@ -484,7 +524,7 @@ def test_upload_photo_returns_400_when_content_type_is_invalid(
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json()["detail"] == "Invalid image content type."
     finally:
-        client.app.dependency_overrides.clear()
+        client.app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_upload_photo_returns_400_when_file_is_empty(client, db_session) -> None:
@@ -498,7 +538,7 @@ def test_upload_photo_returns_400_when_file_is_empty(client, db_session) -> None
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json()["detail"] == "Uploaded image file is empty."
     finally:
-        client.app.dependency_overrides.clear()
+        client.app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_upload_photo_returns_400_when_file_exceeds_size_limit(
@@ -517,7 +557,7 @@ def test_upload_photo_returns_400_when_file_exceeds_size_limit(
             response.json()["detail"] == "Uploaded image exceeds the 5 MB size limit."
         )
     finally:
-        client.app.dependency_overrides.clear()
+        client.app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_upload_photo_returns_202_and_persists_url_in_background_for_valid_image(
@@ -542,7 +582,7 @@ def test_upload_photo_returns_202_and_persists_url_in_background_for_valid_image
                 files={"file": ("avatar.png", b"valid-png-bytes", "image/png")},
             )
     finally:
-        client.app.dependency_overrides.clear()
+        client.app.dependency_overrides.pop(get_current_user, None)
 
     assert response.status_code == status.HTTP_202_ACCEPTED
     assert response.json() == {
