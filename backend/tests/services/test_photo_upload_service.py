@@ -143,3 +143,32 @@ def test_process_photo_upload_in_background_rolls_back_on_storage_error(
     db_session.refresh(person)
     assert person.foto_url is None
     assert any(record.levelno == logging.ERROR for record in caplog.records)
+
+
+def test_process_photo_upload_in_background_falls_back_to_local_storage(
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    from app.services import storage_service
+
+    person = _create_person(db_session, seed=4)
+    monkeypatch.setattr(photo_upload_service, "SessionLocal", TestingSessionLocal)
+    monkeypatch.setattr(storage_service, "LOCAL_PHOTOS_DIR", tmp_path)
+    monkeypatch.setattr(storage_service.settings, "S3_ENDPOINT_URL", "")
+    monkeypatch.setattr(storage_service.settings, "S3_ACCESS_KEY_ID", "")
+    monkeypatch.setattr(storage_service.settings, "S3_SECRET_ACCESS_KEY", "")
+    monkeypatch.setattr(storage_service.settings, "S3_BUCKET_NAME", "")
+
+    photo_upload_service.process_photo_upload_in_background(
+        person.id,
+        b"local-jpeg-bytes",
+        "fallback.jpg",
+        "image/jpeg",
+    )
+
+    db_session.refresh(person)
+    assert person.foto_url is not None
+    assert person.foto_url.startswith("/static/photos/")
+    saved_filename = person.foto_url.removeprefix("/static/photos/")
+    assert (tmp_path / saved_filename).read_bytes() == b"local-jpeg-bytes"

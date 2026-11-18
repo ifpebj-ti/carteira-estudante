@@ -55,3 +55,4 @@ yarn-error.log*
 ai_context*.md
 *.tsbuildinfo
 frontend/public/wasm/
+backend/static/

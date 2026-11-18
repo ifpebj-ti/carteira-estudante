@@ -6,6 +6,12 @@ from botocore.client import Config
 
 from app.core.config import settings
 
+LOCAL_PHOTOS_DIR = Path(__file__).resolve().parents[2] / "static" / "photos"
+
+
+class StorageNotConfiguredError(RuntimeError):
+    """Raised when S3-compatible object storage credentials are missing."""
+
 
 def _validate_storage_settings() -> None:
     if not all(
@@ -16,7 +22,23 @@ def _validate_storage_settings() -> None:
             settings.S3_BUCKET_NAME,
         )
     ):
-        raise RuntimeError("Object storage credentials are not configured.")
+        raise StorageNotConfiguredError(
+            "Object storage credentials are not configured."
+        )
+
+
+def save_photo_locally(
+    file_bytes: bytes,
+    filename: str,
+    target_dir: Path | None = None,
+) -> str:
+    """Persist photo bytes on local disk and return its relative static URL."""
+    file_extension = Path(filename).suffix.lower() or ".jpg"
+    unique_name = f"{uuid.uuid4().hex}{file_extension}"
+    photos_dir = target_dir or LOCAL_PHOTOS_DIR
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    (photos_dir / unique_name).write_bytes(file_bytes)
+    return f"/static/photos/{unique_name}"
 
 
 def _build_photo_url(object_key: str) -> str:

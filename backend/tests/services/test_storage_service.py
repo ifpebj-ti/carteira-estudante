@@ -1,9 +1,14 @@
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.core.config import settings
-from app.services.storage_service import upload_photo_to_storage
+from app.services.storage_service import (
+    StorageNotConfiguredError,
+    save_photo_locally,
+    upload_photo_to_storage,
+)
 
 
 @pytest.mark.parametrize(
@@ -30,7 +35,8 @@ def test_upload_photo_to_storage_raises_runtime_error_when_credentials_missing(
     monkeypatch.setattr(settings, missing_setting, "")
 
     with pytest.raises(
-        RuntimeError, match="Object storage credentials are not configured."
+        StorageNotConfiguredError,
+        match="Object storage credentials are not configured.",
     ):
         upload_photo_to_storage(b"image-bytes", "photo.jpg", "image/jpeg")
 
@@ -107,3 +113,18 @@ def test_upload_photo_to_storage_uses_public_base_url_when_configured(
     assert object_key.endswith(".png")
     assert put_kwargs["ContentType"] == "image/png"
     assert photo_url == f"https://cdn.example.edu.br/photos-bucket/{object_key}"
+
+
+def test_save_photo_locally_writes_bytes_and_returns_relative_static_path(
+    tmp_path: Path,
+) -> None:
+    photo_path = save_photo_locally(
+        b"local-png-bytes",
+        "Avatar.PNG",
+        target_dir=tmp_path,
+    )
+
+    assert photo_path.startswith("/static/photos/")
+    assert photo_path.endswith(".png")
+    saved_name = photo_path.removeprefix("/static/photos/")
+    assert (tmp_path / saved_name).read_bytes() == b"local-png-bytes"

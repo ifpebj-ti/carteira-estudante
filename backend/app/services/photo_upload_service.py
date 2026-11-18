@@ -2,7 +2,11 @@ import logging
 
 from app.core.database import SessionLocal
 from app.models.pessoa import Pessoa
-from app.services.storage_service import upload_photo_to_storage
+from app.services.storage_service import (
+    StorageNotConfiguredError,
+    save_photo_locally,
+    upload_photo_to_storage,
+)
 
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.INFO)
@@ -32,11 +36,17 @@ def process_photo_upload_in_background(
                 )
                 return
 
-            photo_url = upload_photo_to_storage(
-                file_bytes=file_bytes,
-                filename=filename,
-                content_type=content_type,
-            )
+            try:
+                photo_url = upload_photo_to_storage(
+                    file_bytes=file_bytes,
+                    filename=filename,
+                    content_type=content_type,
+                )
+            except StorageNotConfiguredError:
+                photo_url = save_photo_locally(
+                    file_bytes=file_bytes,
+                    filename=filename,
+                )
             person.foto_url = photo_url
             db_session.commit()
             logger.info(
