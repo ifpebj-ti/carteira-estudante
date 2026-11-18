@@ -772,7 +772,7 @@ export default function MobileAlunoPage() {
             {/* Recomendações */}
             <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4 text-left">
               <p className="text-xs text-slate-600 leading-relaxed">
-                💡 <strong>Dica:</strong> Use uma foto recente e nítida (estilo
+                <strong>Dica:</strong> Use uma foto recente e nítida (estilo
                 3x4), com boa iluminação e rosto centralizado, sem óculos
                 escuros ou boné.
               </p>
