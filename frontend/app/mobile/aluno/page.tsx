@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   FileText,
   ArrowUpRight,
@@ -16,6 +16,9 @@ import {
   Maximize2,
   RefreshCw,
   X,
+  Camera,
+  Upload,
+  CheckCircle2,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { getApiBaseUrl, performLogout } from "@/services/auth";
@@ -54,6 +57,34 @@ function formatarCPF(cpf?: string): string {
   const limpo = cpf.replace(/\D/g, "");
   if (limpo.length !== 11) return cpf;
   return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+}
+
+const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_PHOTO_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+const ALLOWED_PHOTO_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+function validarArquivoFoto(file: File): string | null {
+  if (!file || file.size === 0) {
+    return "O arquivo selecionado está vazio.";
+  }
+
+  const nomeArquivo = file.name.toLowerCase();
+  const temExtensaoValida = ALLOWED_PHOTO_EXTENSIONS.some((ext) =>
+    nomeArquivo.endsWith(ext)
+  );
+  const temMimeValido = ALLOWED_PHOTO_MIME_TYPES.includes(
+    file.type.toLowerCase()
+  );
+
+  if (!temExtensaoValida && !temMimeValido) {
+    return "Formato inválido. Use imagens nos formatos JPG, PNG ou WEBP.";
+  }
+
+  if (file.size > MAX_PHOTO_SIZE_BYTES) {
+    return "A imagem excede o tamanho máximo permitido de 5 MB.";
+  }
+
+  return null;
 }
 
 interface FetchPessoaMeResult {
@@ -97,6 +128,137 @@ export default function MobileAlunoPage() {
   const [atualizandoHistorico, setAtualizandoHistorico] = useState(false);
   const [erro, setErro] = useState("");
   const [isQrExpanded, setIsQrExpanded] = useState(false);
+
+  // Estados para envio da foto do aluno
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isModalFotoOpen, setIsModalFotoOpen] = useState(false);
+  const [arquivoFoto, setArquivoFoto] = useState<File | null>(null);
+  const [previewFoto, setPreviewFoto] = useState<string | null>(null);
+  const [fotoLocalUrl, setFotoLocalUrl] = useState<string | null>(null);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const [erroFoto, setErroFoto] = useState("");
+  const [sucessoFoto, setSucessoFoto] = useState("");
+
+  const handleAbrirSeletorFoto = () => {
+    if (enviandoFoto) return;
+    setErroFoto("");
+    setSucessoFoto("");
+    fileInputRef.current?.click();
+  };
+
+  const handleFotoSelecionada = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const erroValidacao = validarArquivoFoto(file);
+    if (erroValidacao) {
+      setErroFoto(erroValidacao);
+      setArquivoFoto(null);
+      setPreviewFoto(null);
+      setIsModalFotoOpen(true);
+      e.target.value = "";
+      return;
+    }
+
+    setErroFoto("");
+    setSucessoFoto("");
+    setArquivoFoto(file);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setPreviewFoto(dataUrl);
+      setIsModalFotoOpen(true);
+    };
+    reader.onerror = () => {
+      setErroFoto("Não foi possível processar a prévia da imagem selecionada.");
+      setIsModalFotoOpen(true);
+    };
+    reader.readAsDataURL(file);
+
+    e.target.value = "";
+  };
+
+  const handleFecharModalFoto = useCallback(() => {
+    if (enviandoFoto) return;
+    setIsModalFotoOpen(false);
+    setArquivoFoto(null);
+    setPreviewFoto(null);
+    setErroFoto("");
+    setSucessoFoto("");
+  }, [enviandoFoto]);
+
+  const handleEnviarFoto = async () => {
+    if (!aluno || !arquivoFoto) return;
+
+    setEnviandoFoto(true);
+    setErroFoto("");
+    setSucessoFoto("");
+
+    try {
+      const API_URL = getApiBaseUrl();
+      const formData = new FormData();
+      formData.append("file", arquivoFoto);
+
+      const headers: Record<string, string> = {
+        Accept: "application/json",
+      };
+
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${API_URL}/api/v1/pessoas/${aluno.id}/photo`, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: formData,
+      });
+
+      if (res.status === 401) {
+        performLogout();
+        return;
+      }
+
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => null);
+        let mensagem = "Não foi possível enviar a foto.";
+        if (errorJson && typeof errorJson.detail === "string") {
+          mensagem = errorJson.detail;
+        } else if (errorJson && Array.isArray(errorJson.detail)) {
+          mensagem = errorJson.detail
+            .map((item: { msg?: string }) => item.msg || "Dados inválidos.")
+            .join(", ");
+        } else if (res.status === 403) {
+          mensagem = "Acesso negado: sem permissão para atualizar a foto.";
+        } else if (res.status === 413) {
+          mensagem = "Arquivo excede o limite máximo permitido de 5 MB.";
+        }
+        throw new Error(mensagem);
+      }
+
+      setSucessoFoto("Foto enviada com sucesso! Atualizando carteira...");
+      if (previewFoto) {
+        setFotoLocalUrl(previewFoto);
+      }
+
+      setTimeout(() => {
+        setIsModalFotoOpen(false);
+        setSucessoFoto("");
+        setArquivoFoto(null);
+        setPreviewFoto(null);
+        void refreshProfile(false);
+      }, 1500);
+    } catch (err) {
+      setErroFoto(
+        err instanceof Error ? err.message : "Erro inesperado ao enviar foto."
+      );
+    } finally {
+      setEnviandoFoto(false);
+    }
+  };
 
   const applyProfileResult = useCallback(
     (result: FetchPessoaMeResult, showInitialError: boolean) => {
@@ -162,6 +324,21 @@ export default function MobileAlunoPage() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isQrExpanded]);
+
+  useEffect(() => {
+    if (!isModalFotoOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !enviandoFoto) {
+        handleFecharModalFoto();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isModalFotoOpen, enviandoFoto, handleFecharModalFoto]);
 
   useEffect(() => {
     let isMounted = true;
@@ -283,13 +460,34 @@ export default function MobileAlunoPage() {
           </div>
 
           <div className="p-5 flex gap-4">
-            <div className="relative w-16 h-20 bg-white/10 rounded-lg shrink-0 overflow-hidden border border-white/20 flex items-center justify-center">
-              <PessoaPhoto
-                src={aluno.foto_url}
-                alt={aluno.nome}
-                sizes="64px"
-                iconClassName="w-7 h-7 text-primary-200"
-              />
+            <div className="relative w-16 h-20 bg-white/10 rounded-lg shrink-0 overflow-hidden border border-white/20 flex items-center justify-center group">
+              {fotoLocalUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={fotoLocalUrl}
+                  alt={aluno.nome}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <PessoaPhoto
+                  src={aluno.foto_url}
+                  alt={aluno.nome}
+                  sizes="64px"
+                  iconClassName="w-7 h-7 text-primary-200"
+                />
+              )}
+              <button
+                type="button"
+                onClick={handleAbrirSeletorFoto}
+                disabled={enviandoFoto}
+                aria-label="Enviar ou alterar foto do aluno"
+                title="Enviar ou alterar foto"
+                className="absolute inset-0 bg-slate-950/25 hover:bg-slate-950/45 focus:bg-slate-950/45 transition-colors flex items-end justify-end p-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/80 rounded-lg"
+              >
+                <span className="p-1 bg-primary-600 hover:bg-primary-500 text-white rounded-md shadow-md transition-transform group-hover:scale-105 active:scale-95 flex items-center justify-center">
+                  <Camera className="w-3 h-3" />
+                </span>
+              </button>
             </div>
             <div className="flex flex-col justify-center">
               <p className="text-[10px] text-primary-300 font-semibold uppercase mb-0.5">
@@ -389,9 +587,20 @@ export default function MobileAlunoPage() {
 
       {/* Informações Detalhadas */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-        <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <FileText className="w-4 h-4 text-slate-500" /> Meus Dados
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-slate-500" /> Meus Dados
+          </h2>
+          <button
+            type="button"
+            onClick={handleAbrirSeletorFoto}
+            disabled={enviandoFoto}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-700 hover:text-primary-800 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-xl transition-colors cursor-pointer border border-primary-100 disabled:opacity-50"
+          >
+            <Camera className="w-3.5 h-3.5 text-primary-600" />
+            {aluno.foto_url || fotoLocalUrl ? "Alterar Foto" : "Enviar Foto"}
+          </button>
+        </div>
 
         <div className="space-y-4">
           <div className="flex flex-col border-b border-slate-100 pb-3">
@@ -490,6 +699,144 @@ export default function MobileAlunoPage() {
           )}
         </div>
       </div>
+
+      {/* Input oculto para seleção de fotos */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        aria-label="Selecionar foto de perfil"
+        className="hidden"
+        onChange={handleFotoSelecionada}
+      />
+
+      {/* Modal de Confirmação e Envio de Foto */}
+      {isModalFotoOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Enviar Foto de Identificação"
+          onClick={handleFecharModalFoto}
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-sm w-full flex flex-col items-center text-center shadow-2xl border border-slate-200 relative"
+          >
+            <button
+              type="button"
+              onClick={handleFecharModalFoto}
+              disabled={enviandoFoto}
+              aria-label="Fechar janela de envio de foto"
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-10 h-10 rounded-2xl bg-primary-100 text-primary-700 flex items-center justify-center mb-3">
+              <Camera className="w-5 h-5" />
+            </div>
+
+            <h3 className="text-base font-bold text-slate-900">
+              Foto de Identificação
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 mb-4">
+              {aluno.nome} &bull; {aluno.matricula}
+            </p>
+
+            {/* Prévia da imagem */}
+            <div className="w-32 h-40 rounded-2xl overflow-hidden border-2 border-slate-200 bg-slate-100 shadow-inner relative flex items-center justify-center mb-3">
+              {previewFoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewFoto}
+                  alt="Prévia da foto selecionada"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-slate-400 p-2">
+                  <Upload className="w-8 h-8 mb-1" />
+                  <span className="text-[10px]">Sem prévia</span>
+                </div>
+              )}
+            </div>
+
+            {/* Metadados do arquivo */}
+            {arquivoFoto && (
+              <p className="text-[11px] text-slate-500 font-mono mb-3 truncate max-w-full px-2">
+                {arquivoFoto.name} (
+                {(arquivoFoto.size / (1024 * 1024)).toFixed(2)} MB)
+              </p>
+            )}
+
+            {/* Recomendações */}
+            <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4 text-left">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                <strong>Dica:</strong> Use uma foto recente e nítida (estilo
+                3x4), com boa iluminação e rosto centralizado, sem óculos
+                escuros ou boné.
+              </p>
+            </div>
+
+            {/* Alerta de erro */}
+            {erroFoto && (
+              <div className="w-full mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2 text-left">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{erroFoto}</span>
+              </div>
+            )}
+
+            {/* Alerta de sucesso */}
+            {sucessoFoto && (
+              <div className="w-full mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs flex items-center gap-2 text-left">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>{sucessoFoto}</span>
+              </div>
+            )}
+
+            {/* Botões de Ação */}
+            <div className="w-full flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleEnviarFoto}
+                disabled={enviandoFoto || !arquivoFoto || !!sucessoFoto}
+                className="w-full py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
+              >
+                {enviandoFoto ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Enviando foto...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Confirmar e Enviar
+                  </>
+                )}
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleAbrirSeletorFoto}
+                  disabled={enviandoFoto}
+                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-medium rounded-xl text-xs transition-colors cursor-pointer"
+                >
+                  Escolher outra
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFecharModalFoto}
+                  disabled={enviandoFoto}
+                  className="w-full py-2.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-600 font-medium rounded-xl text-xs transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

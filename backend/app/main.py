@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.routers.auth import router as auth_router
@@ -32,13 +35,21 @@ app.include_router(auth_router, prefix="/api/v1/auth")
 app.include_router(pessoas_router, prefix="/api/v1")
 app.include_router(movimentacao_router, prefix="/api/v1/movimentacao", tags=["Catraca"])
 
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+(STATIC_DIR / "photos").mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
 
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    if request.url.path.startswith("/static/"):
+        response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+        response.headers["Cache-Control"] = "public, max-age=86400"
+    else:
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return response
 
 

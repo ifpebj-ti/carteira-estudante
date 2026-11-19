@@ -11,7 +11,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.security import RoleChecker
+from app.api.dependencies.security import RoleChecker, verify_photo_upload_access
 from app.core.database import get_db
 from app.models.enums import PerfilOperador
 from app.models.pessoa import Pessoa
@@ -52,7 +52,7 @@ def _validate_photo_metadata(file: UploadFile) -> tuple[str, str]:
     "/{pessoa_id}/photo",
     status_code=status.HTTP_202_ACCEPTED,
     summary="Async profile photo upload",
-    dependencies=[Depends(RoleChecker([PerfilOperador.ADMIN]))],
+    dependencies=[Depends(verify_photo_upload_access)],
 )
 async def upload_photo(
     pessoa_id: int,
