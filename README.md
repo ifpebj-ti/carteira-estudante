@@ -2,6 +2,8 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Coverage Lines](https://github.com/ifpebj-ti/carteira-estudante/raw/badges/coverage-lines.svg)
+![Coverage Branches](https://github.com/ifpebj-ti/carteira-estudante/raw/badges/coverage-branches.svg)
 
 # 📘 Carteira do Estudante
 

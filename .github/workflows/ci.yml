@@ -8,7 +8,7 @@ on:
     branches: ["main"]
 
 permissions:
-  contents: read
+  contents: write
   packages: write
   issues: write
 
@@ -68,7 +68,26 @@ jobs:
           npm run lint --if-present
 
       - name: Executa Testes do Backend
-        run: docker compose exec backend pytest --cov-fail-under=70
+        run: docker compose exec -T backend pytest --cov=app --cov-branch --cov-report=xml:coverage.xml --cov-fail-under=70
+
+      - name: Gera Badges de Cobertura (Lines e Branches)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker compose exec -T backend cat coverage.xml > coverage.xml
+          pip install anybadge
+          mkdir -p badges
+          LINES=$(python3 -c "import xml.etree.ElementTree as ET; print(round(float(ET.parse('coverage.xml').getroot().attrib['line-rate']) * 100, 1))")
+          BRANCHES=$(python3 -c "import xml.etree.ElementTree as ET; print(round(float(ET.parse('coverage.xml').getroot().attrib['branch-rate']) * 100, 1))")
+          anybadge --label="coverage-lines" --value=$LINES --suffix="%" --file=badges/coverage-lines.svg 50=red 70=orange 85=yellow 100=brightgreen
+          anybadge --label="coverage-branches" --value=$BRANCHES --suffix="%" --file=badges/coverage-branches.svg 50=red 70=orange 85=yellow 100=brightgreen
+
+      - name: Publica Badges na branch badges
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: badges
+          publish_dir: ./badges
 
       - name: DAST - OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.15.0
