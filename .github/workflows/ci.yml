@@ -6,6 +6,12 @@ on:
     tags: ["v*.*.*"]
   pull_request:
     branches: ["main"]
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Tag SemVer gerada pelo Release Please"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -104,10 +110,9 @@ jobs:
         with:
           images: ghcr.io/${{ env.REPO_OWNER }}/carteira-backend
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
+            type=raw,value=${{ inputs.release_tag }},enable=${{ inputs.release_tag != '' }}
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build Multi-arquitetura e Push para GHCR (Backend)
         uses: docker/build-push-action@v7
