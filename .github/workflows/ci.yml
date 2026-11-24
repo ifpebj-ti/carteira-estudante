@@ -84,9 +84,8 @@ jobs:
           mkdir -p badges
           LINES=$(python3 -c "import xml.etree.ElementTree as ET; print(round(float(ET.parse('coverage.xml').getroot().attrib['line-rate']) * 100, 1))")
           BRANCHES=$(python3 -c "import xml.etree.ElementTree as ET; print(round(float(ET.parse('coverage.xml').getroot().attrib['branch-rate']) * 100, 1))")
-          anybadge --label="coverage-lines" --value=$LINES --suffix="%" --file=badges/coverage-lines.svg 50=red 70=orange 85=yellow 100=brightgreen
-          anybadge --label="coverage-branches" --value=$BRANCHES --suffix="%" --file=badges/coverage-branches.svg 50=red 70=orange 85=yellow 100=brightgreen
-
+          anybadge --label="coverage-lines" --value=$LINES --suffix="%" --file=badges/coverage-lines.svg 50=red 70=orange 85=yellow 100=green
+          anybadge --label="coverage-branches" --value=$BRANCHES --suffix="%" --file=badges/coverage-branches.svg 50=red 70=orange 85=yellow 100=green
       - name: Publica Badges na branch badges
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v4
