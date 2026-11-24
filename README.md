@@ -4,6 +4,10 @@
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Coverage Lines](https://github.com/ifpebj-ti/carteira-estudante/raw/badges/coverage-lines.svg)
 ![Coverage Branches](https://github.com/ifpebj-ti/carteira-estudante/raw/badges/coverage-branches.svg)
+[![CI/CD Pipeline](https://github.com/ifpebj-ti/carteira-estudante/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ifpebj-ti/carteira-estudante/actions/workflows/ci.yml)
+[![Semantic Release](https://github.com/ifpebj-ti/carteira-estudante/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/ifpebj-ti/carteira-estudante/actions/workflows/release.yml)
+![Coverage Lines](https://github.com/ifpebj-ti/carteira-estudante/raw/badges/coverage-lines.svg)
+![Coverage Branches](https://github.com/ifpebj-ti/carteira-estudante/raw/badges/coverage-branches.svg)
 
 # 📘 Carteira do Estudante
 
