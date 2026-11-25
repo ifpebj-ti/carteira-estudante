@@ -104,13 +104,12 @@ class PessoaResponse(PessoaBase):
     qr_code_hash: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
-    deleted_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class PessoaDetailResponse(PessoaResponse):
-    movimentacoes: List[MovimentacaoResponse] = []
+    movimentacoes: List[MovimentacaoResponse | PessoaMovimentacaoResponse] = []
 
 
 class PessoaMeResponse(PessoaResponse):

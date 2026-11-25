@@ -11,12 +11,21 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.security import RoleChecker, verify_photo_upload_access
+from app.api.dependencies.security import (
+    RoleChecker,
+    get_current_actor,
+    verify_person_read_access,
+    verify_photo_upload_access,
+)
 from app.core.database import get_db
 from app.models.enums import PerfilOperador
 from app.models.pessoa import Pessoa
+from app.models.usuario import UsuarioSistema
 from app.schemas.pessoa import PessoaDetailResponse, PessoaResponse, PessoaUpdate
-from app.services.movimentacao_service import build_movement_responses
+from app.services.movimentacao_service import (
+    build_movement_responses,
+    build_person_movement_responses,
+)
 from app.services.photo_upload_service import process_photo_upload_in_background
 from app.services.upload_service import (
     ALLOWED_UPLOAD_EXTENSIONS,
@@ -146,18 +155,15 @@ def list_people(
 
 
 @router.get("/{matricula}", response_model=PessoaDetailResponse)
-def get_person_by_matricula(matricula: str, db: Session = Depends(get_db)):
-    person = (
-        db.query(Pessoa)
-        .filter(Pessoa.matricula == matricula, Pessoa.deleted_at.is_(None))
-        .first()
+def get_person_by_matricula(
+    person: Pessoa = Depends(verify_person_read_access),
+    actor: UsuarioSistema | Pessoa = Depends(get_current_actor),
+) -> PessoaDetailResponse:
+    movement_responses = (
+        build_person_movement_responses(person.movimentacoes)
+        if isinstance(actor, Pessoa)
+        else build_movement_responses(person.movimentacoes)
     )
-    if not person:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Pessoa não encontrado"
-        )
-
-    movement_responses = build_movement_responses(person.movimentacoes)
 
     return PessoaDetailResponse(
         id=person.id,
@@ -176,7 +182,6 @@ def get_person_by_matricula(matricula: str, db: Session = Depends(get_db)):
         qr_code_hash=person.qr_code_hash,
         created_at=person.created_at,
         updated_at=person.updated_at,
-        deleted_at=person.deleted_at,
         movimentacoes=movement_responses,
     )
 

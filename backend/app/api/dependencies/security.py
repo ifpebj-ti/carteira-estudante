@@ -217,3 +217,40 @@ def verify_photo_upload_access(
             detail="Acesso negado: privilégios insuficientes",
         )
     return actor
+
+
+def verify_person_read_access(
+    matricula: str,
+    actor: UsuarioSistema | Pessoa = Depends(get_current_actor),
+    db: Session = Depends(get_db),
+) -> Pessoa:
+    """Allow ADMIN operators for any person, or a person reading their own record."""
+    if not isinstance(actor, Pessoa):
+        operator_role = (
+            actor.perfil.value if hasattr(actor.perfil, "value") else actor.perfil
+        )
+        if operator_role != PerfilOperador.ADMIN.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso negado: privilégios insuficientes",
+            )
+
+    target_person = (
+        db.query(Pessoa)
+        .filter(Pessoa.matricula == matricula, Pessoa.deleted_at.is_(None))
+        .first()
+    )
+    if isinstance(actor, Pessoa):
+        if not target_person or actor.id != target_person.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso negado: privilégios insuficientes",
+            )
+        return target_person
+
+    if not target_person:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pessoa não encontrado",
+        )
+    return target_person

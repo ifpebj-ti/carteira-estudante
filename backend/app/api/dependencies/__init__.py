@@ -4,6 +4,7 @@ from app.api.dependencies.security import (
     get_current_actor,
     get_current_person,
     get_current_user,
+    verify_person_read_access,
     verify_photo_upload_access,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "get_current_actor",
     "get_current_person",
     "get_current_user",
+    "verify_person_read_access",
     "verify_photo_upload_access",
 ]

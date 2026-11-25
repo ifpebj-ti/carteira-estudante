@@ -233,3 +233,52 @@ def test_verify_photo_upload_access_allows_admin_and_self_person():
 
     assert verify_photo_upload_access(pessoa_id=999, actor=admin) is admin
     assert verify_photo_upload_access(pessoa_id=42, actor=person) is person
+
+
+def test_verify_person_read_access_returns_target_person_for_admin_and_self_person(
+    db_session,
+):
+    from app.api.dependencies.security import verify_person_read_access
+    from app.models.pessoa import Pessoa
+
+    db_session.execute(
+        text(
+            "SELECT setval("
+            "pg_get_serial_sequence('pessoas', 'id'), "
+            "COALESCE((SELECT MAX(id) FROM pessoas), 1), "
+            "(SELECT EXISTS(SELECT 1 FROM pessoas))"
+            ")"
+        )
+    )
+    person = Pessoa(
+        nome="Read Access Unit Student",
+        cpf="91001028228",
+        matricula="2026SECREAD01",
+        tipo_vinculo="ALUNO",
+        status=True,
+    )
+    db_session.add(person)
+    db_session.commit()
+    db_session.refresh(person)
+
+    admin = UsuarioSistema(
+        id=1,
+        nome="Admin Read",
+        login="admin_read@ifpe.edu.br",
+        senha_hash="hashed_test_secret",  # noqa: S106
+        perfil=PerfilOperador.ADMIN,
+        status=True,
+    )
+
+    assert (
+        verify_person_read_access(
+            matricula=person.matricula, actor=admin, db=db_session
+        ).id
+        == person.id
+    )
+    assert (
+        verify_person_read_access(
+            matricula=person.matricula, actor=person, db=db_session
+        ).id
+        == person.id
+    )
