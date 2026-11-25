@@ -7,6 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.security import get_password_hash
 from app.models.enums import (
@@ -60,7 +61,25 @@ def generate_matricula(
     return f"{ano}{semestre}{sigla}BJ{sequencial:04d}"
 
 
+ALLOWED_SEED_ENVIRONMENTS: frozenset[str] = frozenset(
+    {"development", "dev", "local", "test", "testing"}
+)
+
+
+def ensure_non_production_environment() -> str:
+    raw_environment = os.getenv("ENVIRONMENT", settings.ENVIRONMENT)
+    normalized_environment = (raw_environment or "").strip().lower()
+    if normalized_environment not in ALLOWED_SEED_ENVIRONMENTS:
+        allowed_list = ", ".join(sorted(ALLOWED_SEED_ENVIRONMENTS))
+        raise RuntimeError(
+            f"Database seed is blocked for ENVIRONMENT={raw_environment!r}. "
+            f"Allowed environments: {allowed_list}."
+        )
+    return normalized_environment
+
+
 def seed():
+    ensure_non_production_environment()
     print("Iniciando população de dados no banco de dados...")
     db: Session = SessionLocal()
 
