@@ -1,3 +1,4 @@
+from io import BytesIO
 from pathlib import Path
 
 from fastapi import (
@@ -9,6 +10,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.security import (
@@ -17,7 +19,9 @@ from app.api.dependencies.security import (
     verify_person_read_access,
     verify_photo_upload_access,
 )
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.upload import read_upload_file_with_limit
 from app.models.enums import PerfilOperador
 from app.models.pessoa import Pessoa
 from app.models.usuario import UsuarioSistema
@@ -34,7 +38,13 @@ from app.services.upload_service import (
 
 ALLOWED_PHOTO_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp"})
 ALLOWED_PHOTO_CONTENT_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
-MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024
+ALLOWED_PHOTO_FORMATS = frozenset({"JPEG", "PNG", "WEBP"})
+MAX_PHOTO_PIXELS = 25_000_000
+PHOTO_FORMAT_METADATA: dict[str, tuple[str, str]] = {
+    "JPEG": (".jpg", "image/jpeg"),
+    "PNG": (".png", "image/png"),
+    "WEBP": (".webp", "image/webp"),
+}
 
 router = APIRouter(prefix="/pessoas", tags=["Pessoas"])
 
@@ -55,6 +65,57 @@ def _validate_photo_metadata(file: UploadFile) -> tuple[str, str]:
             detail="Invalid image content type.",
         )
     return filename, content_type
+
+
+def validate_photo_image_bytes(file_bytes: bytes) -> str:
+    """Decode uploaded bytes with Pillow and enforce allowed raster formats."""
+    try:
+        with Image.open(BytesIO(file_bytes)) as image:
+            detected_format = (image.format or "").upper()
+            width, height = image.size
+            image.verify()
+    except (
+        UnidentifiedImageError,
+        Image.DecompressionBombError,
+        OSError,
+        SyntaxError,
+        ValueError,
+        EOFError,
+    ) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or corrupted image file.",
+        ) from exc
+
+    if detected_format not in ALLOWED_PHOTO_FORMATS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported image format. Allowed: JPEG, PNG, WEBP.",
+        )
+
+    if width * height > MAX_PHOTO_PIXELS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Image dimensions exceed the maximum allowed resolution.",
+        )
+
+    try:
+        with Image.open(BytesIO(file_bytes)) as image:
+            image.load()
+    except (
+        UnidentifiedImageError,
+        Image.DecompressionBombError,
+        OSError,
+        SyntaxError,
+        ValueError,
+        EOFError,
+    ) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or corrupted image file.",
+        ) from exc
+
+    return detected_format
 
 
 @router.post(
@@ -81,26 +142,23 @@ async def upload_photo(
             detail="Person not found.",
         )
 
-    filename, content_type = _validate_photo_metadata(file)
-    file_bytes = await file.read()
-    await file.close()
-    if not file_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Uploaded image file is empty.",
-        )
-    if len(file_bytes) > MAX_PHOTO_SIZE_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Uploaded image exceeds the 5 MB size limit.",
-        )
+    filename, _ = _validate_photo_metadata(file)
+    file_bytes = await read_upload_file_with_limit(
+        file,
+        settings.MAX_PHOTO_UPLOAD_BYTES,
+        empty_detail="Uploaded image file is empty.",
+        too_large_detail="Uploaded image exceeds the 5 MB size limit.",
+    )
+    detected_format = validate_photo_image_bytes(file_bytes)
+    canonical_extension, canonical_content_type = PHOTO_FORMAT_METADATA[detected_format]
+    canonical_filename = f"{Path(filename).stem or 'photo'}{canonical_extension}"
 
     background_tasks.add_task(
         process_photo_upload_in_background,
         person.id,
         file_bytes,
-        filename,
-        content_type,
+        canonical_filename,
+        canonical_content_type,
     )
     return {"message": "Photo upload received and processing started in background"}
 

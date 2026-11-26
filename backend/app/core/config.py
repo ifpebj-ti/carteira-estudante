@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     QR_CODE_EXPIRE_SECONDS: int = 180
+    MAX_PHOTO_UPLOAD_BYTES: int = 5 * 1024 * 1024
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

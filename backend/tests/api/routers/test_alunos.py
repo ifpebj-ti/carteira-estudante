@@ -4,6 +4,7 @@ import openpyxl
 import polars as pl
 import pytest
 from fastapi import status
+from PIL import Image
 from pydantic import ValidationError
 from sqlalchemy import text
 
@@ -571,6 +572,13 @@ def _create_photo_test_person(db_session, *, seed: int) -> Pessoa:
     return person
 
 
+def _build_valid_image_bytes(image_format: str = "PNG") -> bytes:
+    buffer = io.BytesIO()
+    image = Image.new("RGB", (16, 16), color=(24, 112, 190))
+    image.save(buffer, format=image_format)
+    return buffer.getvalue()
+
+
 def _override_photo_operator(client, *, profile_name: str) -> None:
     from app.models.usuario import UsuarioSistema
 
@@ -640,7 +648,13 @@ def test_upload_photo_returns_202_when_authenticated_as_self_person(
         response = client.post(
             f"/api/v1/pessoas/{person.id}/photo",
             headers={"Authorization": f"Bearer {person_token}"},
-            files={"file": ("avatar.jpg", b"jpeg-bytes", "image/jpeg")},
+            files={
+                "file": (
+                    "avatar.jpg",
+                    _build_valid_image_bytes("JPEG"),
+                    "image/jpeg",
+                )
+            },
         )
 
     assert response.status_code == status.HTTP_202_ACCEPTED
@@ -732,7 +746,7 @@ def test_upload_photo_returns_400_when_file_is_empty(client, db_session) -> None
         client.app.dependency_overrides.pop(get_current_user, None)
 
 
-def test_upload_photo_returns_400_when_file_exceeds_size_limit(
+def test_upload_photo_returns_413_when_file_exceeds_size_limit(
     client, db_session
 ) -> None:
     person = _create_photo_test_person(db_session, seed=5)
@@ -743,7 +757,7 @@ def test_upload_photo_returns_400_when_file_exceeds_size_limit(
             f"/api/v1/pessoas/{person.id}/photo",
             files={"file": ("huge.webp", oversized_bytes, "image/webp")},
         )
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
         assert (
             response.json()["detail"] == "Uploaded image exceeds the 5 MB size limit."
         )
@@ -751,16 +765,104 @@ def test_upload_photo_returns_400_when_file_exceeds_size_limit(
         client.app.dependency_overrides.pop(get_current_user, None)
 
 
+def test_upload_photo_returns_400_when_file_is_forged_text_renamed_as_png(
+    client, db_session
+) -> None:
+    from unittest.mock import patch
+
+    person = _create_photo_test_person(db_session, seed=12)
+    _override_photo_operator(client, profile_name="ADMIN")
+    try:
+        with patch(
+            "app.api.routers.pessoas.process_photo_upload_in_background"
+        ) as mock_bg_task:
+            response = client.post(
+                f"/api/v1/pessoas/{person.id}/photo",
+                files={
+                    "file": (
+                        "forged.png",
+                        b"plain text pretending to be an image",
+                        "image/png",
+                    )
+                },
+            )
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == "Invalid or corrupted image file."
+    mock_bg_task.assert_not_called()
+
+
+@pytest.mark.parametrize("disallowed_format", ["GIF", "BMP"])
+def test_upload_photo_returns_400_when_decoded_image_format_is_not_allowed(
+    client, db_session, disallowed_format: str
+) -> None:
+    person = _create_photo_test_person(
+        db_session, seed=13 if disallowed_format == "GIF" else 14
+    )
+    spoofed_bytes = _build_valid_image_bytes(disallowed_format)
+    _override_photo_operator(client, profile_name="ADMIN")
+    try:
+        response = client.post(
+            f"/api/v1/pessoas/{person.id}/photo",
+            files={"file": ("spoofed.png", spoofed_bytes, "image/png")},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert (
+            response.json()["detail"]
+            == "Unsupported image format. Allowed: JPEG, PNG, WEBP."
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_upload_photo_returns_400_when_image_pixel_data_is_corrupted(
+    client, db_session
+) -> None:
+    person = _create_photo_test_person(db_session, seed=15)
+    valid_jpeg = _build_valid_image_bytes("JPEG")
+    truncated_jpeg = valid_jpeg[: len(valid_jpeg) // 2]
+
+    _override_photo_operator(client, profile_name="ADMIN")
+    try:
+        response = client.post(
+            f"/api/v1/pessoas/{person.id}/photo",
+            files={"file": ("corrupted.jpg", truncated_jpeg, "image/jpeg")},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json()["detail"] == "Invalid or corrupted image file."
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.parametrize(
+    ("filename", "pil_format", "content_type", "seed"),
+    [
+        ("avatar.png", "PNG", "image/png", 6),
+        ("avatar.jpg", "JPEG", "image/jpeg", 16),
+        ("avatar.webp", "WEBP", "image/webp", 17),
+    ],
+)
 def test_upload_photo_returns_202_and_persists_url_in_background_for_valid_image(
-    client, db_session, monkeypatch
+    client,
+    db_session,
+    monkeypatch,
+    filename: str,
+    pil_format: str,
+    content_type: str,
+    seed: int,
 ) -> None:
     from unittest.mock import patch
 
     from app.services import photo_upload_service
 
-    person = _create_photo_test_person(db_session, seed=6)
+    person = _create_photo_test_person(db_session, seed=seed)
     monkeypatch.setattr(photo_upload_service, "SessionLocal", TestingSessionLocal)
-    expected_url = "https://cdn.example.edu.br/photos/student6.png"
+    expected_url = (
+        f"https://cdn.example.edu.br/photos/student{seed}.{pil_format.lower()}"
+    )
+    valid_bytes = _build_valid_image_bytes(pil_format)
 
     _override_photo_operator(client, profile_name="ADMIN")
     try:
@@ -770,7 +872,7 @@ def test_upload_photo_returns_202_and_persists_url_in_background_for_valid_image
         ) as mock_upload:
             response = client.post(
                 f"/api/v1/pessoas/{person.id}/photo",
-                files={"file": ("avatar.png", b"valid-png-bytes", "image/png")},
+                files={"file": (filename, valid_bytes, content_type)},
             )
     finally:
         client.app.dependency_overrides.pop(get_current_user, None)
