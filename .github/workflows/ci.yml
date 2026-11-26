@@ -14,30 +14,31 @@ on:
         type: string
 
 permissions:
-  contents: write
-  packages: write
-  issues: write
+  contents: read
 
 jobs:
   build-infra:
     name: Testa a Infraestrutura
     runs-on: ubuntu-latest
+    outputs:
+      coverage_lines: ${{ steps.coverage.outputs.lines }}
+      coverage_branches: ${{ steps.coverage.outputs.branches }}
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Criar arquivo .env para testes da CI
         run: cp .env.example .env
 
       - name: Configura QEMU (Suporte Multi-arquitetura)
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
 
       - name: Configura Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Build da Imagem do Backend (Local + Cache)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: ./backend
           pull: true
@@ -61,7 +62,7 @@ jobs:
         run: docker compose exec backend bandit -r app/ -ll -ii
 
       - name: Configura Node.js e Cache NPM
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "26"
           cache: "npm"
@@ -76,26 +77,18 @@ jobs:
       - name: Executa Testes do Backend
         run: docker compose exec -T backend pytest --cov=app --cov-branch --cov-report=xml:coverage.xml --cov-fail-under=70
 
-      - name: Gera Badges de Cobertura (Lines e Branches)
+      - name: Extrai Métricas de Cobertura (Lines e Branches)
+        id: coverage
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           docker compose exec -T backend cat coverage.xml > coverage.xml
-          pip install anybadge
-          mkdir -p badges
           LINES=$(python3 -c "import xml.etree.ElementTree as ET; print(round(float(ET.parse('coverage.xml').getroot().attrib['line-rate']) * 100, 1))")
           BRANCHES=$(python3 -c "import xml.etree.ElementTree as ET; print(round(float(ET.parse('coverage.xml').getroot().attrib['branch-rate']) * 100, 1))")
-          anybadge --label="coverage-lines" --value=$LINES --suffix="%" --file=badges/coverage-lines.svg 50=red 70=orange 85=yellow 100=green
-          anybadge --label="coverage-branches" --value=$BRANCHES --suffix="%" --file=badges/coverage-branches.svg 50=red 70=orange 85=yellow 100=green
-      - name: Publica Badges na branch badges
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: badges
-          publish_dir: ./badges
+          echo "lines=${LINES}" >> "$GITHUB_OUTPUT"
+          echo "branches=${BRANCHES}" >> "$GITHUB_OUTPUT"
 
       - name: DAST - OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.15.0
+        uses: zaproxy/action-baseline@6c5a007541891231cd9e0ddec25d4f25c59c9874 # v0.15.0
         with:
           target: "http://localhost:8000"
           fail_action: true
@@ -103,7 +96,7 @@ jobs:
           rules_file_name: '.zap/rules.tsv'
 
       - name: Análise de Segurança da Imagem (Trivy - Backend)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # master
         with:
           image-ref: "carteira-backend:latest"
           format: "table"
@@ -112,53 +105,8 @@ jobs:
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
 
-      - name: Login no GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Prepara nome do repositório
-        run: echo "REPO_OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
-      - name: Extrai metadados (tags, labels) para o Docker
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/${{ env.REPO_OWNER }}/carteira-backend
-          tags: |
-            type=semver,pattern={{version}}
-            type=raw,value=${{ inputs.release_tag }},enable=${{ inputs.release_tag != '' }}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build Multi-arquitetura e Push para GHCR (Backend)
-        uses: docker/build-push-action@v7
-        with:
-          context: ./backend
-          platforms: linux/amd64,linux/arm64
-          pull: true
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
-          cache-from: type=gha,scope=${{ github.workflow }}-backend-push
-          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-backend-push
-
-      - name: Extrai metadados para o Frontend
-        id: meta-frontend
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/${{ env.REPO_OWNER }}/carteira-frontend
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-
       - name: Build da Imagem do Frontend (Local + Cache para Trivy)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: ./frontend
           pull: true
@@ -171,7 +119,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ github.workflow }}-frontend-trivy
 
       - name: Análise de Segurança (Trivy) - Frontend
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # master
         with:
           image-ref: "carteira-frontend:latest"
           format: "table"
@@ -180,13 +128,93 @@ jobs:
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
 
+  publish:
+    name: Publica Imagens e Badges
+    runs-on: ubuntu-latest
+    needs: build-infra
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Gera Badges de Cobertura (Lines e Branches)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          pip install anybadge
+          mkdir -p badges
+          anybadge --label="coverage-lines" --value="${{ needs.build-infra.outputs.coverage_lines }}" --suffix="%" --file=badges/coverage-lines.svg 50=red 70=orange 85=yellow 100=green
+          anybadge --label="coverage-branches" --value="${{ needs.build-infra.outputs.coverage_branches }}" --suffix="%" --file=badges/coverage-branches.svg 50=red 70=orange 85=yellow 100=green
+
+      - name: Publica Badges na branch badges
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@329bcc8f12caed2cefe5a5b80781499a6f3b361b # v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: badges
+          publish_dir: ./badges
+
+      - name: Configura QEMU (Suporte Multi-arquitetura)
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
+
+      - name: Configura Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepara nome do repositório
+        run: echo "REPO_OWNER=$(echo ${{ github.repository_owner }} \vert{} tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Extrai metadados (tags, labels) para o Docker
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: ghcr.io/${{ env.REPO_OWNER }}/carteira-backend
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=${{ inputs.release_tag }},enable=${{ inputs.release_tag != '' }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build Multi-arquitetura e Push para GHCR (Backend)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: ./backend
+          platforms: linux/amd64,linux/arm64
+          pull: true
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
+          cache-from: type=gha,scope=${{ github.workflow }}-backend-push
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-backend-push
+
+      - name: Extrai metadados para o Frontend
+        id: meta-frontend
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: ghcr.io/${{ env.REPO_OWNER }}/carteira-frontend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+
       - name: Build Multi-arquitetura e Push para GHCR - Frontend
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: ./frontend
           platforms: linux/amd64,linux/arm64
           pull: true
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
           build-args: |
@@ -198,12 +226,12 @@ jobs:
   deploy-prod:
     name: CD - Deploy na Oracle VM
     runs-on: ubuntu-latest
-    needs: build-infra
+    needs: publish
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
 
     steps:
       - name: Conectar via SSH e atualizar contêineres
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: ${{ secrets.ORACLE_USERNAME }}
