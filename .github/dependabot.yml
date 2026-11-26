@@ -1,7 +1,7 @@
 version: 2
 updates:
   # Monitoramento de dependências do Back-end (Python/pip)
-  - package-ecosystem: "pip"
+  - package-ecosystem: "uv"
     directory: "/backend"
     schedule:
       interval: "daily"
