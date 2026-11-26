@@ -5,10 +5,18 @@ import polars as pl
 import pytest
 from fastapi import status
 from pydantic import ValidationError
+from sqlalchemy import text
 
 from app.api.dependencies.security import get_current_user
 from app.api.routers.auth import create_access_token
-from app.models.enums import PerfilOperador, TipoVinculo
+from app.core.security import get_password_hash
+from app.models.enums import (
+    LocalAcesso,
+    PerfilOperador,
+    SentidoMovimentacao,
+    TipoVinculo,
+)
+from app.models.movimentacao import Movimentacao
 from app.models.pessoa import Pessoa
 from app.models.usuario import UsuarioSistema
 from app.schemas.pessoa import PessoaBase, PessoaResponse, PessoaUpdate
@@ -61,26 +69,203 @@ def _get_or_create_person(
     return person
 
 
-def test_get_person_by_matricula_returns_404_when_matricula_not_found(client):
-    response = client.get("/api/v1/pessoas/20241INBJ9999")
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert response.json()["detail"] == "Pessoa não encontrado"
+def _create_movement_for_person(
+    db_session,
+    *,
+    person: Pessoa,
+    operator_name: str,
+    operator_login: str,
+    operator_role: PerfilOperador,
+) -> Movimentacao:
+    db_session.execute(
+        text(
+            "SELECT setval("
+            "pg_get_serial_sequence('usuarios_sistema', 'id'), "
+            "COALESCE((SELECT MAX(id) FROM usuarios_sistema), 1), "
+            "(SELECT EXISTS(SELECT 1 FROM usuarios_sistema))"
+            ")"
+        )
+    )
+    operator = (
+        db_session.query(UsuarioSistema)
+        .filter(UsuarioSistema.login == operator_login)
+        .first()
+    )
+    if not operator:
+        operator = UsuarioSistema(
+            nome=operator_name,
+            login=operator_login,
+            senha_hash=get_password_hash("Mudar@123"),
+            perfil=operator_role,
+            status=True,
+        )
+        db_session.add(operator)
+        db_session.commit()
+        db_session.refresh(operator)
+
+    db_session.execute(
+        text(
+            "SELECT setval("
+            "pg_get_serial_sequence('movimentacoes', 'id'), "
+            "COALESCE((SELECT MAX(id) FROM movimentacoes), 1), "
+            "(SELECT EXISTS(SELECT 1 FROM movimentacoes))"
+            ")"
+        )
+    )
+    movement = Movimentacao(
+        pessoa_id=person.id,
+        operador_id=operator.id,
+        local_acesso=next(iter(LocalAcesso)),
+        tipo=next(iter(SentidoMovimentacao)),
+    )
+    db_session.add(movement)
+    db_session.commit()
+    return movement
 
 
-def test_get_person_by_matricula_returns_200_and_details_when_found(client, db_session):
-    _get_or_create_person(
+def test_get_person_by_matricula_returns_401_when_unauthenticated(client):
+    client.app.dependency_overrides.pop(get_current_user, None)
+    client.cookies.clear()
+
+    anonymous_response = client.get("/api/v1/pessoas/20241EWBJ0001")
+    assert anonymous_response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    invalid_token_response = client.get(
+        "/api/v1/pessoas/20241EWBJ0001",
+        headers={"Authorization": "Bearer invalid.jwt.token"},
+    )
+    assert invalid_token_response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_get_person_by_matricula_returns_404_when_matricula_not_found_for_admin(
+    client,
+):
+    client.app.dependency_overrides[get_current_user] = _override_admin
+    try:
+        response = client.get("/api/v1/pessoas/20241INBJ9999")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"] == "Pessoa não encontrado"
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_get_person_by_matricula_returns_200_when_authenticated_as_admin(
+    client, db_session
+):
+    person = _get_or_create_person(
         db_session,
         matricula="20241EWBJ0001",
         name="Test Student",
         cpf="12345670088",
     )
+    _create_movement_for_person(
+        db_session,
+        person=person,
+        operator_name="Admin Detail Audit",
+        operator_login="admin_detail_audit@ifpe.edu.br",
+        operator_role=PerfilOperador.ADMIN,
+    )
 
-    response = client.get("/api/v1/pessoas/20241EWBJ0001")
+    client.app.dependency_overrides[get_current_user] = _override_admin
+    try:
+        response = client.get("/api/v1/pessoas/20241EWBJ0001")
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["matricula"] == "20241EWBJ0001"
+        assert data["nome"] == "Test Student"
+        assert data["cpf"] == "12345670088"
+        assert "senha_hash" not in data
+        assert "deleted_at" not in data
+        assert any(
+            item.get("operador_nome") == "Admin Detail Audit"
+            for item in data["movimentacoes"]
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_get_person_by_matricula_returns_200_when_authenticated_as_self_person(
+    client, db_session
+):
+    person = _create_photo_test_person(db_session, seed=21)
+    person.senha_hash = get_password_hash("Mudar@123")
+    db_session.commit()
+
+    _create_movement_for_person(
+        db_session,
+        person=person,
+        operator_name="Gate Operator Internal",
+        operator_login="gate_internal_detail@ifpe.edu.br",
+        operator_role=PerfilOperador.PORTEIRO,
+    )
+
+    login_response = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": person.matricula, "senha": "Mudar@123"},
+    )
+    assert login_response.status_code == status.HTTP_200_OK
+    person_token = login_response.json()["access_token"]
+    client.cookies.clear()
+    client.app.dependency_overrides.pop(get_current_user, None)
+
+    response = client.get(
+        f"/api/v1/pessoas/{person.matricula}",
+        headers={"Authorization": f"Bearer {person_token}"},
+    )
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["matricula"] == "20241EWBJ0001"
-    assert data["nome"] == "Test Student"
-    assert data["cpf"] == "12345670088"
+    assert data["id"] == person.id
+    assert data["matricula"] == person.matricula
+    assert "senha_hash" not in data
+    assert "deleted_at" not in data
+    assert len(data["movimentacoes"]) == 1
+    assert "operador_id" not in data["movimentacoes"][0]
+    assert "operador_nome" not in data["movimentacoes"][0]
+
+
+def test_get_person_by_matricula_returns_403_when_person_queries_another_person(
+    client, db_session
+):
+    person_owner = _create_photo_test_person(db_session, seed=22)
+    person_other = _create_photo_test_person(db_session, seed=23)
+    person_owner.senha_hash = get_password_hash("Mudar@123")
+    db_session.commit()
+
+    login_response = client.post(
+        "/api/v1/auth/pessoa/login",
+        json={"login": person_owner.matricula, "senha": "Mudar@123"},
+    )
+    assert login_response.status_code == status.HTTP_200_OK
+    owner_token = login_response.json()["access_token"]
+    client.cookies.clear()
+    client.app.dependency_overrides.pop(get_current_user, None)
+
+    idor_response = client.get(
+        f"/api/v1/pessoas/{person_other.matricula}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert idor_response.status_code == status.HTTP_403_FORBIDDEN
+    assert idor_response.json()["detail"] == "Acesso negado: privilégios insuficientes"
+
+    unknown_matricula_response = client.get(
+        "/api/v1/pessoas/20241INBJ9999",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert unknown_matricula_response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_person_by_matricula_returns_403_when_operator_is_doorman(
+    client, db_session
+):
+    person = _create_photo_test_person(db_session, seed=24)
+
+    client.app.dependency_overrides[get_current_user] = _override_doorman
+    try:
+        response = client.get(f"/api/v1/pessoas/{person.matricula}")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.json()["detail"] == "Acesso negado: privilégios insuficientes"
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_list_people_returns_200_and_list_for_valid_admin(client, db_session):
@@ -335,10 +520,16 @@ def test_pessoa_response_excludes_senha_hash_from_serialization_and_api(
     db_session.refresh(person)
 
     assert "senha_hash" not in PessoaResponse.model_validate(person).model_dump()
+    assert "deleted_at" not in PessoaResponse.model_validate(person).model_dump()
 
-    response = client.get("/api/v1/pessoas/20241EWBJ0888")
-    assert response.status_code == status.HTTP_200_OK
-    assert "senha_hash" not in response.json()
+    client.app.dependency_overrides[get_current_user] = _override_admin
+    try:
+        response = client.get("/api/v1/pessoas/20241EWBJ0888")
+        assert response.status_code == status.HTTP_200_OK
+        assert "senha_hash" not in response.json()
+        assert "deleted_at" not in response.json()
+    finally:
+        client.app.dependency_overrides.pop(get_current_user, None)
 
 
 def _create_photo_test_person(db_session, *, seed: int) -> Pessoa:
