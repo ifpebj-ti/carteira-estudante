@@ -9,7 +9,7 @@ services:
       - postgres_data_prod:/var/lib/postgresql/data
 
   backend:
-    image: ghcr.io/ifpebj-ti/carteira-backend:latest
+    image: ghcr.io/ifpebj-ti/carteira-backend:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: carteira_backend_prod
     restart: always
     ports:
@@ -22,7 +22,7 @@ services:
       - db
 
   frontend:
-    image: ghcr.io/ifpebj-ti/carteira-frontend:latest
+    image: ghcr.io/ifpebj-ti/carteira-frontend:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: carteira_frontend_prod
     restart: always
     ports:
