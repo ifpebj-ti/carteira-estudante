@@ -1,5 +1,6 @@
 import datetime
 import os
+import secrets
 import sys
 
 # Add the parent directory to the path so we can import 'app'
@@ -78,8 +79,25 @@ def ensure_non_production_environment() -> str:
     return normalized_environment
 
 
+def resolve_seed_password() -> str:
+    ensure_non_production_environment()
+    configured_value = os.getenv("SEED_DEFAULT_PASSWORD")
+    if configured_value is None:
+        configured_value = settings.SEED_DEFAULT_PASSWORD
+    if configured_value and configured_value.strip():
+        return configured_value.strip()
+
+    generated_value = secrets.token_urlsafe(16)
+    print(
+        "[WARNING] SEED_DEFAULT_PASSWORD is not set; generated a random "
+        "one-time password via secrets.token_urlsafe(16) for this local seed run."
+    )
+    return generated_value
+
+
 def seed():
     ensure_non_production_environment()
+    seed_password = resolve_seed_password()
     print("Iniciando população de dados no banco de dados...")
     db: Session = SessionLocal()
 
@@ -113,7 +131,7 @@ def seed():
             },
         ]
 
-        default_password_hash = get_password_hash("Mudar@123")
+        default_password_hash = get_password_hash(seed_password)
         operadores = {}
         for op_data in operadores_data:
             op = (
