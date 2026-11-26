@@ -9,6 +9,9 @@ RUN npm ci
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
+ARG NEXT_PUBLIC_APP_VERSION=dev
+ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
+
 COPY . .
 RUN npm run build
 
@@ -17,6 +20,9 @@ FROM node:26-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
+
+ARG NEXT_PUBLIC_APP_VERSION=dev
+ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
 
 # Permite invalidar apenas a camada de patches do SO em builds com cache (ex.: CI)
 ARG CACHE_BUSTER=""
