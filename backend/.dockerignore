@@ -1,17 +1,37 @@
-.venv
-venv
-env
-__pycache__
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Bytecode and caches
+__pycache__/
+**/__pycache__/
 *.py[cod]
+*.pyc
 *.so
-.pytest_cache
-.ruff_cache
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Test suites, coverage, and dev/seed scripts
+tests/
+scripts/
+generate_test_token.py
 .coverage
-htmlcov
-dist
-build
-*.egg-info
-.git
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Environment, VCS, local uploads, and docs
+.env*
+.git/
 .gitignore
-.env
-README.md
+static/
+*.md
+Dockerfile
+.dockerignore
+
+# Packaging artifacts
+dist/
+build/
+*.egg-info/

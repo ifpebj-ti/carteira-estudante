@@ -22,7 +22,7 @@ COPY pyproject.toml uv.lock ./
 
 RUN uv sync --locked --no-install-project --no-cache
 
-COPY . .
+COPY app ./app
 
 RUN uv sync --locked --no-cache
 
@@ -51,7 +51,9 @@ COPY --from=builder /opt/venv /opt/venv
 
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY . .
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini pyproject.toml uv.lock ./
 
 EXPOSE 8000
 
