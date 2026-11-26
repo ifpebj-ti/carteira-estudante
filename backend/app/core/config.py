@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "API - Carteira Estudantil IFPE"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
+    SEED_DEFAULT_PASSWORD: str | None = None
     DATABASE_URL: str
     SECRET_KEY: str
     FRONTEND_URL: str = "http://localhost:3000"
