@@ -98,6 +98,7 @@ jobs:
       - name: Prepara dados fictícios e token autenticado para o ZAP
         id: zap_auth
         run: |
+          docker compose exec -T backend sh -c 'if [ -f alembic.ini ]; then alembic upgrade head; else python -c "import app.models; from app.core.database import Base, engine; Base.metadata.create_all(bind=engine)"; fi'
           docker compose exec -T -e ENVIRONMENT=test -e SEED_DEFAULT_PASSWORD=CiZapTestPass123! backend python scripts/seed_db.py
           TOKEN=$(curl -fsS -X POST http://localhost:8000/api/v1/auth/login \
             -H "Content-Type: application/json" \
