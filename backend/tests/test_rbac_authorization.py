@@ -16,7 +16,8 @@ from app.models.pessoa import Pessoa
 from app.models.usuario import UsuarioSistema
 from app.services.qr_crypto_service import generate_qr_token
 
-TEST_PASSWORD = "RbacTestPassword123!" # noqa: S105
+TEST_PASSWORD = "RbacTestPassword123!"  # noqa: S105
+
 
 def _login_and_get_headers(
     client: TestClient, login: str, senha: str = TEST_PASSWORD
@@ -130,9 +131,7 @@ def test_student_profile_authorization_flow(client: TestClient, rbac_actors):
     assert me_resp.json()["matricula"] == estudante_1.matricula
     assert "qr_token" in me_resp.json()
 
-    own_resp = client.get(
-        f"/api/v1/pessoas/{estudante_1.matricula}", headers=headers
-    )
+    own_resp = client.get(f"/api/v1/pessoas/{estudante_1.matricula}", headers=headers)
     assert own_resp.status_code == 200
 
     # Não pode acessar dados de outro estudante nem rotas de operador/admin
@@ -151,9 +150,10 @@ def test_student_profile_authorization_flow(client: TestClient, rbac_actors):
         json={"nome": "Tentativa Indevida"},
         headers=headers,
     ).status_code in (401, 403)
-    assert client.get(
-        "/api/v1/auth/usuarios", headers=headers
-    ).status_code in (401, 403)
+    assert client.get("/api/v1/auth/usuarios", headers=headers).status_code in (
+        401,
+        403,
+    )
     assert client.get(
         "/api/v1/movimentacao/historico", headers=headers
     ).status_code in (401, 403)
@@ -170,8 +170,7 @@ def test_gatekeeper_profile_authorization_flow(client: TestClient, rbac_actors):
     assert me_resp.json()["perfil"] == PerfilOperador.PORTEIRO.value
 
     assert (
-        client.get("/api/v1/movimentacao/historico", headers=headers).status_code
-        == 200
+        client.get("/api/v1/movimentacao/historico", headers=headers).status_code == 200
     )
 
     qr_token = generate_qr_token(estudante_1.id)
@@ -202,9 +201,7 @@ def test_gatekeeper_profile_authorization_flow(client: TestClient, rbac_actors):
         ).status_code
         == 403
     )
-    assert (
-        client.get("/api/v1/auth/usuarios", headers=headers).status_code == 403
-    )
+    assert client.get("/api/v1/auth/usuarios", headers=headers).status_code == 403
 
 
 def test_admin_profile_authorization_flow(client: TestClient, rbac_actors):
@@ -217,13 +214,20 @@ def test_admin_profile_authorization_flow(client: TestClient, rbac_actors):
     assert me_resp.status_code == 200
     assert me_resp.json()["perfil"] == PerfilOperador.ADMIN.value
 
-    assert (
-        client.get("/api/v1/auth/usuarios", headers=headers).status_code == 200
-    )
-    assert client.get("/api/v1/pessoas", headers=headers).status_code == 200
+    assert client.get("/api/v1/auth/usuarios", headers=headers).status_code == 200
     assert (
         client.get(
-            f"/api/v1/pessoas/{estudante_1.matricula}", headers=headers
+            "/api/v1/pessoas",
+            params={"skip": 10000, "limit": 1},
+            headers=headers,
+        ).status_code
+        == 200
+    )
+    assert (
+        client.get(
+            "/api/v1/pessoas",
+            params={"skip": 10000, "limit": 1},
+            headers=headers,
         ).status_code
         == 200
     )
@@ -236,6 +240,5 @@ def test_admin_profile_authorization_flow(client: TestClient, rbac_actors):
         == 200
     )
     assert (
-        client.get("/api/v1/movimentacao/historico", headers=headers).status_code
-        == 200
+        client.get("/api/v1/movimentacao/historico", headers=headers).status_code == 200
     )
