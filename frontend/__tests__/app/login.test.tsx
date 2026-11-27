@@ -122,6 +122,48 @@ describe("app/page (LoginPage)", () => {
     expect(passwordInput).toHaveAttribute("type", "password");
   });
 
+  it("displays loading state and disables inputs while authenticating", async () => {
+    const user = userEvent.setup();
+    let resolveFetch!: (value: unknown) => void;
+    const fetchMock = vi.fn().mockReturnValue(
+      new Promise((resolve) => {
+        resolveFetch = resolve;
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<LoginPage />);
+
+    const loginInput = screen.getByLabelText(/matrícula, e-mail ou login/i);
+    const passwordInput = screen.getByLabelText("Senha");
+
+    await user.type(loginInput, "20241EWBJ0001");
+    await user.type(passwordInput, "Senha@123");
+    await user.click(
+      screen.getByRole("button", { name: /entrar no sistema/i })
+    );
+
+    const loadingBtn = await screen.findByRole("button", {
+      name: /conectando\.\.\./i,
+    });
+    expect(loadingBtn).toBeDisabled();
+    expect(loginInput).toBeDisabled();
+    expect(passwordInput).toBeDisabled();
+
+    resolveFetch({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({
+        account_type: "pessoa",
+        role: "ALUNO",
+      }),
+    });
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/mobile/aluno");
+    });
+  });
+
   it("handles 401, 403, 500, network failure and unrecognized role errors", async () => {
     const user = userEvent.setup();
     const fetchMock = vi

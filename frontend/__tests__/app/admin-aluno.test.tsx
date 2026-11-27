@@ -51,7 +51,9 @@ describe("app/admin/aluno/[id]/page", () => {
 
     render(<AlunoDetailsPage />);
 
-    expect(await screen.findByText("Maria Clara")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Maria Clara" })
+    ).toBeInTheDocument();
     const images = screen.getAllByRole("img", { name: "Maria Clara" });
     expect(images[0]).toHaveAttribute(
       "src",

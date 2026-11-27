@@ -84,4 +84,96 @@ describe("ProtectedRoute & useAuth", () => {
     expect(screen.getByTestId("user-role")).toHaveTextContent("anon");
     expect(screen.getByText("Acesso Restrito")).toBeInTheDocument();
   });
+
+  it("blocks authenticated users with disallowed roles and supports default null fallback", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          token: "cookie-based",
+          user: {
+            id: "2",
+            name: "Porteiro",
+            email: "porteiro@ifpe.edu.br",
+            role: "Portaria",
+          },
+        }),
+      })
+    );
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+        <ProtectedRoute allowedRoles={["Administrador"]}>
+          <span>Somente Admin Sem Fallback</span>
+        </ProtectedRoute>
+      </AuthProvider>
+    );
+
+    await user.click(screen.getByRole("button", { name: "Entrar" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("user-role")).toHaveTextContent("Portaria");
+    });
+
+    expect(screen.getByText("Acesso Restrito")).toBeInTheDocument();
+    expect(screen.queryByText("Painel Admin")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Somente Admin Sem Fallback")
+    ).not.toBeInTheDocument();
+  });
+
+  it("propagates login errors and resets loading state", async () => {
+    const user = userEvent.setup();
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: vi.fn().mockResolvedValue({ detail: "Credenciais inválidas" }),
+      })
+    );
+
+    const onError = vi.fn();
+
+    function ErrorHarness() {
+      const { login, isLoading } = useAuth();
+      return (
+        <div>
+          <span data-testid="loading-state">{String(isLoading)}</span>
+          <button
+            type="button"
+            onClick={() => {
+              void login("user@ifpe.edu.br", "wrong").catch(onError);
+            }}
+          >
+            Tentar Login
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <AuthProvider>
+        <ErrorHarness />
+      </AuthProvider>
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tentar Login" }));
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 401,
+          message: "Credenciais inválidas",
+        })
+      );
+      expect(screen.getByTestId("loading-state")).toHaveTextContent("false");
+    });
+    consoleSpy.mockRestore();
+  });
 });

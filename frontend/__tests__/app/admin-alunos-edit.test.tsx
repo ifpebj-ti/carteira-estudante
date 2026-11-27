@@ -96,6 +96,7 @@ describe("app/admin/alunos and app/admin/editar/[id]", () => {
   });
 
   it("loads student data, sends PATCH without read-only fields and formats validation errors", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const user = userEvent.setup();
     const fetchMock = vi
       .fn()
@@ -147,5 +148,6 @@ describe("app/admin/alunos and app/admin/editar/[id]", () => {
     expect(patchBody).not.toHaveProperty("qr_code_hash");
     expect(patchBody).not.toHaveProperty("created_at");
     expect(patchBody).not.toHaveProperty("movimentacoes");
+    consoleSpy.mockRestore();
   });
 });

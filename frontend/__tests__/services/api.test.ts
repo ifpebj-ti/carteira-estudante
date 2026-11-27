@@ -78,4 +78,30 @@ describe("services/api", () => {
       message: "Ocorreu um erro inesperado ao se comunicar com o servidor.",
     });
   });
+
+  it("formats FastAPI array detail messages in ApiError", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: vi.fn().mockResolvedValue({
+        detail: [{ msg: "Campo obrigatório" }, { msg: "CPF inválido" }],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api("/api/v1/pessoas/1")).rejects.toMatchObject({
+      name: "ApiError",
+      status: 422,
+      message: "Campo obrigatório, CPF inválido",
+    });
+  });
+
+  it("propagates network failures when fetch rejects", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api("/api/v1/auth/me")).rejects.toThrow("Failed to fetch");
+  });
 });

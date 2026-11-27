@@ -1,5 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MobileAlunoPage from "@/app/mobile/aluno/page";
 import * as authService from "@/services/auth";
@@ -86,7 +91,6 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
   });
 
   it("loads and renders wallet credentials, formatted CPF, QR code, movements and expanded QR modal", async () => {
-    const user = userEvent.setup();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -127,8 +131,8 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
     const qr = screen.getByTestId("qr-code");
     expect(qr).toHaveAttribute("data-value", "dynamic-qr-token-1");
 
-    // Abre e fecha o modal de QR ampliado
-    await user.click(screen.getByRole("button", { name: /ampliar qr$/i }));
+    // Abre e fecha o modal de QR ampliado (Escape, botão fechar e clique no overlay)
+    fireEvent.click(screen.getByRole("button", { name: /ampliar qr$/i }));
     expect(
       screen.getByRole("dialog", { name: "QR Code Ampliado" })
     ).toBeInTheDocument();
@@ -139,8 +143,27 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
       screen.queryByRole("dialog", { name: "QR Code Ampliado" })
     ).not.toBeInTheDocument();
 
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ampliar QR Code para leitura" })
+    );
+    expect(
+      screen.getByRole("dialog", { name: "QR Code Ampliado" })
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Fechar QR Code ampliado" })
+    );
+    expect(
+      screen.queryByRole("dialog", { name: "QR Code Ampliado" })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /ampliar qr$/i }));
+    fireEvent.click(screen.getByRole("dialog", { name: "QR Code Ampliado" }));
+    expect(
+      screen.queryByRole("dialog", { name: "QR Code Ampliado" })
+    ).not.toBeInTheDocument();
+
     // Atualização manual do histórico e token QR
-    await user.click(
+    fireEvent.click(
       screen.getByRole("button", { name: "Atualizar acessos recentes" })
     );
     await waitFor(() => {
@@ -149,6 +172,112 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
         "dynamic-qr-token-2"
       );
     });
+  });
+
+  it("renders inactive status, non-ALUNO affiliation, empty movements, and QR fallbacks", async () => {
+    const servidorComHash = {
+      ...sampleAluno,
+      tipo_vinculo: "PROFESSOR",
+      curso: undefined,
+      modalidade: undefined,
+      cpf: undefined,
+      email: undefined,
+      foto_url: undefined,
+      status: false,
+      qr_token: undefined,
+      qr_code_hash: "static-hash-fallback",
+      qr_expires_in: undefined,
+      movimentacoes: [],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue(servidorComHash),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          ...servidorComHash,
+          cpf: "12345",
+          qr_code_hash: undefined,
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<MobileAlunoPage />);
+
+    expect(await screen.findByText("Inativa")).toBeInTheDocument();
+    expect(screen.getAllByText("Professor(a)").length).toBeGreaterThanOrEqual(
+      1
+    );
+    expect(screen.getByText("IFPE Belo Jardim")).toBeInTheDocument();
+    expect(screen.getByText("Identificação")).toBeInTheDocument();
+    expect(screen.getByText("Categoria")).toBeInTheDocument();
+    expect(screen.getByText("Nenhum acesso registrado.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /enviar foto/i })).toBeVisible();
+    expect(screen.getByTestId("qr-code")).toHaveAttribute(
+      "data-value",
+      "static-hash-fallback"
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Atualizar acessos recentes" })
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("qr-code")).toHaveAttribute(
+        "data-value",
+        sampleAluno.matricula
+      );
+    });
+    expect(screen.getByText("12345")).toBeInTheDocument();
+  });
+
+  it("periodically refreshes dynamic QR token based on qr_expires_in", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          ...sampleAluno,
+          qr_token: "token-inicial",
+          qr_expires_in: 60,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          ...sampleAluno,
+          qr_token: "token-renovado",
+          qr_expires_in: 60,
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<MobileAlunoPage />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId("qr-code")).toHaveAttribute(
+      "data-value",
+      "token-inicial"
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("qr-code")).toHaveAttribute(
+      "data-value",
+      "token-renovado"
+    );
   });
 
   it("handles 401, 403 and network errors when loading wallet profile", async () => {
@@ -246,8 +375,78 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
     ).toBeInTheDocument();
   });
 
-  it("previews valid photo, uploads FormData to API and refreshes profile on 202", async () => {
+  it("triggers file picker from both wallet card and Meus Dados, supports swap/Escape and FileReader error", async () => {
     vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue(sampleAluno),
+      })
+    );
+
+    render(<MobileAlunoPage />);
+    await screen.findByText("MARIA CLARA SANTOS");
+
+    const fileInput = screen.getByLabelText(
+      "Selecionar foto de perfil"
+    ) as HTMLInputElement;
+    const clickSpy = vi.spyOn(fileInput, "click");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Enviar ou alterar foto do aluno" })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Alterar Foto" }));
+    expect(clickSpy).toHaveBeenCalledTimes(2);
+
+    const pngFile = new File(["png-bytes"], "perfil.png", {
+      type: "image/png",
+    });
+    fireEvent.change(fileInput, { target: { files: [pngFile] } });
+    expect(
+      await screen.findByRole("dialog", {
+        name: "Enviar Foto de Identificação",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/perfil\.png/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Escolher outra" }));
+    expect(clickSpy).toHaveBeenCalledTimes(3);
+
+    const webpFile = new File(["webp-bytes"], "nova.webp", {
+      type: "image/webp",
+    });
+    fireEvent.change(fileInput, { target: { files: [webpFile] } });
+    expect(await screen.findByText(/nova\.webp/i)).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(
+      screen.queryByRole("dialog", { name: "Enviar Foto de Identificação" })
+    ).not.toBeInTheDocument();
+
+    class FailingFileReader {
+      onload: ((event: ProgressEvent<FileReader>) => void) | null = null;
+      onerror: (() => void) | null = null;
+      readAsDataURL() {
+        this.onerror?.();
+      }
+    }
+    vi.stubGlobal(
+      "FileReader",
+      FailingFileReader as unknown as typeof FileReader
+    );
+    fireEvent.change(fileInput, { target: { files: [pngFile] } });
+    expect(
+      await screen.findByText(
+        "Não foi possível processar a prévia da imagem selecionada."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("previews valid photo, uploads FormData to API, shows loading state and refreshes profile on 202", async () => {
+    vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
+    let resolveUpload!: (value: unknown) => void;
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -255,13 +454,11 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
         status: 200,
         json: vi.fn().mockResolvedValue(sampleAluno),
       })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 202,
-        json: vi.fn().mockResolvedValue({
-          message: "Photo upload received and processing started in background",
-        }),
-      })
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveUpload = resolve;
+        })
+      )
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -289,6 +486,7 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
         name: "Enviar Foto de Identificação",
       })
     ).toBeInTheDocument();
+    expect(screen.getByText(/selfie\.jpg/i)).toBeInTheDocument();
     expect(screen.getByAltText("Prévia da foto selecionada")).toHaveAttribute(
       "src",
       "data:image/jpeg;base64,ZmFrZQ=="
@@ -299,11 +497,28 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
       screen.getByRole("button", { name: /confirmar e enviar/i })
     );
 
-    await vi.waitFor(() => {
-      expect(
-        screen.getByText("Foto enviada com sucesso! Atualizando carteira...")
-      ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /enviando foto\.\.\./i })
+    ).toBeDisabled();
+
+    await act(async () => {
+      resolveUpload({
+        ok: true,
+        status: 202,
+        json: vi.fn().mockResolvedValue({
+          message: "Photo upload received and processing started in background",
+        }),
+      });
+      await Promise.resolve();
     });
+
+    expect(
+      screen.getByText("Foto enviada com sucesso! Atualizando carteira...")
+    ).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: sampleAluno.nome })).toHaveAttribute(
+      "src",
+      "data:image/jpeg;base64,ZmFrZQ=="
+    );
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
@@ -317,14 +532,17 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
     const uploadCallBody = fetchMock.mock.calls[1][1].body as FormData;
     expect(uploadCallBody.get("file")).toBe(validImage);
 
-    await vi.advanceTimersByTimeAsync(1500);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+
     expect(
       screen.queryByRole("dialog", { name: "Enviar Foto de Identificação" })
     ).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it("handles 400 array detail, 403, 413 and 401 errors during photo upload", async () => {
+  it("clears pending upload refresh timer on unmount", async () => {
     vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
     const fetchMock = vi
       .fn()
@@ -332,6 +550,58 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
         ok: true,
         status: 200,
         json: vi.fn().mockResolvedValue(sampleAluno),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 202,
+        json: vi.fn().mockResolvedValue({ message: "ok" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = render(<MobileAlunoPage />);
+    await screen.findByText("MARIA CLARA SANTOS");
+
+    const fileInput = screen.getByLabelText(
+      "Selecionar foto de perfil"
+    ) as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["jpg-bytes"], "selfie.jpg", { type: "image/jpeg" })],
+      },
+    });
+    await screen.findByRole("dialog", { name: "Enviar Foto de Identificação" });
+
+    vi.useFakeTimers();
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: /confirmar e enviar/i })
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("handles 400 string/array detail, 403, 413, network error and 401 during photo upload", async () => {
+    vi.stubGlobal("FileReader", MockFileReader as unknown as typeof FileReader);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue(sampleAluno),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: vi
+          .fn()
+          .mockResolvedValue({ detail: "Assinatura de arquivo inválida." }),
       })
       .mockResolvedValueOnce({
         ok: false,
@@ -350,6 +620,7 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
         status: 413,
         json: vi.fn().mockRejectedValue(new Error("no json")),
       })
+      .mockRejectedValueOnce(new Error("Falha de conexão no upload"))
       .mockResolvedValueOnce({
         ok: false,
         status: 401,
@@ -372,6 +643,11 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
     });
 
     fireEvent.click(sendBtn);
+    expect(
+      await screen.findByText("Assinatura de arquivo inválida.")
+    ).toBeInTheDocument();
+
+    fireEvent.click(sendBtn);
     expect(await screen.findByText("Imagem corrompida")).toBeInTheDocument();
 
     fireEvent.click(sendBtn);
@@ -386,6 +662,11 @@ describe("app/mobile/aluno/page (Carteira Digital e Upload)", () => {
       await screen.findByText(
         "Arquivo excede o limite máximo permitido de 5 MB."
       )
+    ).toBeInTheDocument();
+
+    fireEvent.click(sendBtn);
+    expect(
+      await screen.findByText("Falha de conexão no upload")
     ).toBeInTheDocument();
 
     fireEvent.click(sendBtn);

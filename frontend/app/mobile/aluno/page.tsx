@@ -131,6 +131,9 @@ export default function MobileAlunoPage() {
 
   // Estados para envio da foto do aluno
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadSuccessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const [isModalFotoOpen, setIsModalFotoOpen] = useState(false);
   const [arquivoFoto, setArquivoFoto] = useState<File | null>(null);
   const [previewFoto, setPreviewFoto] = useState<string | null>(null);
@@ -244,7 +247,11 @@ export default function MobileAlunoPage() {
         setFotoLocalUrl(previewFoto);
       }
 
-      setTimeout(() => {
+      if (uploadSuccessTimeoutRef.current) {
+        clearTimeout(uploadSuccessTimeoutRef.current);
+      }
+      uploadSuccessTimeoutRef.current = setTimeout(() => {
+        uploadSuccessTimeoutRef.current = null;
         setIsModalFotoOpen(false);
         setSucessoFoto("");
         setArquivoFoto(null);
@@ -378,6 +385,10 @@ export default function MobileAlunoPage() {
       isMounted = false;
       window.removeEventListener("focus", handleVisibilityOrFocus);
       document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      if (uploadSuccessTimeoutRef.current) {
+        clearTimeout(uploadSuccessTimeoutRef.current);
+        uploadSuccessTimeoutRef.current = null;
+      }
     };
   }, [applyProfileResult, refreshProfile]);
 

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import QrScannerPage from "@/app/mobile/leitor/page";
@@ -71,9 +71,14 @@ describe("app/mobile/leitor/page (Sessão de Portaria, Scan e Erros)", () => {
     expect(
       await screen.findByText("Sessão de portaria inativa")
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Entrar como Porteiro" })
-    ).toBeInTheDocument();
+    const loginPorteiroBtn = screen.getByRole("button", {
+      name: "Entrar como Porteiro",
+    });
+    expect(loginPorteiroBtn).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(loginPorteiroBtn);
+    expect(performLogoutSpy).toHaveBeenCalledTimes(2);
   });
 
   it("validates scanned QR code and loads movement history tab", async () => {
@@ -133,7 +138,100 @@ describe("app/mobile/leitor/page (Sessão de Portaria, Scan e Erros)", () => {
     expect(await screen.findByText("João Silva")).toBeInTheDocument();
   });
 
-  it("displays friendly camera permission error when scanner fails", async () => {
+  it("handles denied scan, network errors, and 401/403 during scan and history fetch", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ id: 1, perfil: "PORTEIRO" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          status: false,
+          student_name: "Carlos Bloqueado",
+          movement_type: "ENTRADA",
+          local_acesso: "PORTARIA",
+        }),
+      })
+      .mockRejectedValueOnce(new Error("Falha ao buscar histórico"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view1 = render(<QrScannerPage />);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      capturedOnScan?.([{ rawValue: "blocked-qr" }]);
+    });
+
+    expect(await screen.findByText("Acesso Negado")).toBeInTheDocument();
+    expect(
+      screen.getByText("Carlos Bloqueado - Acesso bloqueado.")
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /histórico/i }));
+    expect(
+      await screen.findByText("Falha ao buscar histórico")
+    ).toBeInTheDocument();
+    view1.unmount();
+
+    const fetch401Scan = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ id: 1, perfil: "PORTEIRO" }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: vi.fn().mockResolvedValue({ detail: "Sessão expirada" }),
+      });
+    vi.stubGlobal("fetch", fetch401Scan);
+
+    const view2 = render(<QrScannerPage />);
+    await waitFor(() => {
+      expect(fetch401Scan).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      capturedOnScan?.([{ rawValue: "expired-session-qr" }]);
+    });
+    await waitFor(() => {
+      expect(performLogoutSpy).toHaveBeenCalledTimes(1);
+    });
+    view2.unmount();
+
+    const fetchScanErr = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ id: 1, perfil: "PORTEIRO" }),
+      })
+      .mockRejectedValueOnce(new Error("Sem conexão com a portaria"));
+    vi.stubGlobal("fetch", fetchScanErr);
+
+    render(<QrScannerPage />);
+    await waitFor(() => {
+      expect(fetchScanErr).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      capturedOnScan?.([{ rawValue: "net-err-qr" }]);
+    });
+    expect(await screen.findByText("Acesso Negado")).toBeInTheDocument();
+    expect(screen.getByText("Sem conexão com a portaria")).toBeInTheDocument();
+  });
+
+  it("displays friendly camera permission error and allows retry", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const user = userEvent.setup();
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -148,10 +246,18 @@ describe("app/mobile/leitor/page (Sessão de Portaria, Scan e Erros)", () => {
       expect(capturedOnError).not.toBeNull();
     });
 
-    capturedOnError?.({ kind: "permission-denied", message: "Denied" });
+    await act(async () => {
+      capturedOnError?.({ kind: "permission-denied", message: "Denied" });
+    });
 
     expect(
       await screen.findByText("Permissão da câmera bloqueada")
     ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /tentar novamente/i }));
+    expect(
+      screen.queryByText("Permissão da câmera bloqueada")
+    ).not.toBeInTheDocument();
+    consoleSpy.mockRestore();
   });
 });

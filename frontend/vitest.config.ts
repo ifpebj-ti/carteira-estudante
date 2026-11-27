@@ -12,6 +12,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: false,
+    testTimeout: 15000,
     setupFiles: ["./vitest.setup.ts"],
     include: ["__tests__/**/*.test.{ts,tsx}"],
     clearMocks: true,
@@ -35,6 +36,48 @@ export default defineConfig({
         "coverage/**",
         ".next/**",
       ],
+      thresholds: {
+        statements: 70,
+        branches: 60,
+        functions: 60,
+        lines: 70,
+        "proxy.ts": {
+          statements: 95,
+          branches: 95,
+          functions: 95,
+          lines: 95,
+        },
+        "services/**/*.ts": {
+          statements: 90,
+          branches: 75,
+          functions: 95,
+          lines: 90,
+        },
+        "app/page.tsx": {
+          statements: 95,
+          branches: 90,
+          functions: 95,
+          lines: 95,
+        },
+        "app/mobile/aluno/page.tsx": {
+          statements: 90,
+          branches: 80,
+          functions: 90,
+          lines: 90,
+        },
+        "components/ui/PessoaPhoto.tsx": {
+          statements: 95,
+          branches: 95,
+          functions: 95,
+          lines: 95,
+        },
+        "components/ui/ProtectedRoute.tsx": {
+          statements: 95,
+          branches: 95,
+          functions: 95,
+          lines: 95,
+        },
+      },
     },
   },
 });

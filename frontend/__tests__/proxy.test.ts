@@ -58,6 +58,21 @@ describe("proxy (RBAC and session route guard)", () => {
     const publicResp = proxy(buildRequest("/", "token.invalido"));
     expect(publicResp.status).toBe(200);
     expect(publicResp.cookies.get("access_token")?.value).toBe("");
+
+    const unknownRoleToken = createJwt({
+      sub: "99",
+      account_type: "visitante",
+      role: "DESCONHECIDO",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const unknownProtectedResp = proxy(
+      buildRequest("/admin", unknownRoleToken)
+    );
+    expect(unknownProtectedResp.status).toBe(307);
+    expect(unknownProtectedResp.headers.get("location")).toBe(
+      "http://localhost:3000/"
+    );
+    expect(unknownProtectedResp.cookies.get("access_token")?.value).toBe("");
   });
 
   it("enforces strict RBAC isolation for pessoa sessions", () => {
@@ -97,6 +112,12 @@ describe("proxy (RBAC and session route guard)", () => {
 
     expect(proxy(buildRequest("/mobile/leitor", porteiroToken)).status).toBe(
       200
+    );
+
+    const porteiroLoginRedirect = proxy(buildRequest("/", porteiroToken));
+    expect(porteiroLoginRedirect.status).toBe(307);
+    expect(porteiroLoginRedirect.headers.get("location")).toBe(
+      "http://localhost:3000/mobile/leitor"
     );
 
     const porteiroAdminBlocked = proxy(buildRequest("/admin", porteiroToken));
