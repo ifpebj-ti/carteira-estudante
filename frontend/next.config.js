@@ -1,75 +1,38 @@
 /** @type {import('next').NextConfig} */
-function parseUrlOrigin(rawUrl) {
-  if (!rawUrl) return null;
-  try {
-    const parsed = new URL(rawUrl);
-    return {
-      origin: parsed.origin,
-      pattern: {
-        protocol: parsed.protocol.replace(":", ""),
-        hostname: parsed.hostname,
-        ...(parsed.port ? { port: parsed.port } : {}),
-      },
-    };
-  } catch {
-    return null;
-  }
-}
-
-const apiUrlInfo = parseUrlOrigin(
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-);
-const photoBaseInfo = parseUrlOrigin(process.env.NEXT_PUBLIC_PHOTO_BASE_URL);
-const isLocalApi =
-  !apiUrlInfo ||
-  apiUrlInfo.pattern.hostname === "localhost" ||
-  apiUrlInfo.pattern.hostname === "127.0.0.1";
-
-const remotePatterns = [
-  {
-    protocol: "https",
-    hostname: "images.unsplash.com",
-  },
-  {
-    protocol: "https",
-    hostname: "**.oraclecloud.com",
-  },
-  ...(isLocalApi
-    ? [
-        {
-          protocol: "http",
-          hostname: "localhost",
-          port: "8000",
-        },
-        {
-          protocol: "http",
-          hostname: "127.0.0.1",
-          port: "8000",
-        },
-      ]
-    : []),
-  ...(apiUrlInfo ? [apiUrlInfo.pattern] : []),
-  ...(photoBaseInfo ? [photoBaseInfo.pattern] : []),
-];
-
-const imgSources = Array.from(
-  new Set([
-    "'self'",
-    "data:",
-    "blob:",
-    ...(apiUrlInfo ? [apiUrlInfo.origin] : []),
-    ...(photoBaseInfo ? [photoBaseInfo.origin] : []),
-    ...(isLocalApi ? ["http://localhost:8000", "http://127.0.0.1:8000"] : []),
-    "https://*.oraclecloud.com",
-    "https://images.unsplash.com",
-    "https://www.svgrepo.com",
-  ])
-).join(" ");
-
 const nextConfig = {
   output: "standalone",
   images: {
-    remotePatterns,
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        hostname: "**",
+      },
+      {
+        protocol: "http",
+        hostname: "localhost",
+      },
+      {
+        protocol: "http",
+        hostname: "127.0.0.1",
+      },
+      {
+        protocol: "http",
+        hostname: "backend",
+      },
+    ],
+  },
+  async rewrites() {
+    const apiBase =
+      process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:8000";
+    return [
+      {
+        source: "/static/:path*",
+        destination: `${apiBase}/static/:path*`,
+      },
+    ];
   },
   // Security Headers aligned with OWASP guidelines (ai_context_frontend.md)
   async headers() {
@@ -102,9 +65,10 @@ const nextConfig = {
           "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           "font-src 'self' https://fonts.gstatic.com",
-          `img-src ${imgSources}`,
+          "img-src 'self' data: https://images.unsplash.com https://www.svgrepo.com",
+          `img-src 'self' data: blob: https: ${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}`,
           "media-src 'self' data: blob:",
-          `connect-src 'self' ${apiUrlInfo ? apiUrlInfo.origin : "http://localhost:8000"} https://fastly.jsdelivr.net https://cdn.jsdelivr.net`,
+          `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"} https://fastly.jsdelivr.net https://cdn.jsdelivr.net`,
           "frame-ancestors 'none'",
         ].join("; "),
       },

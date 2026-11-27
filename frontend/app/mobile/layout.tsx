@@ -3,6 +3,7 @@
 import React from "react";
 import { LogOut } from "lucide-react";
 import { getApiBaseUrl } from "@/services/auth";
+import { AppVersionBar } from "@/components/layout/AppVersionBar";
 
 export default function MobileLayout({
   children,
@@ -34,6 +35,8 @@ export default function MobileLayout({
             <LogOut className="w-5 h-5" />
           </a>
         </header>
+
+        <AppVersionBar className="px-4" />
 
         {/* O conteúdo específico da Carteira ou do Leitor entra aqui! */}
         <div className="flex-1 flex flex-col relative h-full">{children}</div>
