@@ -52,11 +52,18 @@ export const api = async <T>(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new ApiError(
-      response.status,
-      errorData.detail ||
-        "Ocorreu um erro inesperado ao se comunicar com o servidor."
-    );
+    let detailMessage =
+      "Ocorreu um erro inesperado ao se comunicar com o servidor.";
+    if (typeof errorData.detail === "string" && errorData.detail.trim()) {
+      detailMessage = errorData.detail;
+    } else if (Array.isArray(errorData.detail) && errorData.detail.length > 0) {
+      detailMessage = errorData.detail
+        .map((item: { msg?: string } | string) =>
+          typeof item === "string" ? item : item?.msg || "Dados inválidos."
+        )
+        .join(", ");
+    }
+    throw new ApiError(response.status, detailMessage);
   }
 
   // Some endpoints might not return JSON (like 204 No Content)
