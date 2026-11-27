@@ -67,6 +67,7 @@ const imgSources = Array.from(
 ).join(" ");
 
 const nextConfig = {
+  poweredByHeader: false,
   output: "standalone",
   images: {
     remotePatterns,

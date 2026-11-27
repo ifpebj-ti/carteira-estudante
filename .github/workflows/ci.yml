@@ -86,6 +86,7 @@ jobs:
           BRANCHES=$(python3 -c "import xml.etree.ElementTree as ET; print(round(float(ET.parse('coverage.xml').getroot().attrib['branch-rate']) * 100, 1))")
           anybadge --label="coverage-lines" --value=$LINES --suffix="%" --file=badges/coverage-lines.svg 50=red 70=orange 85=yellow 100=green
           anybadge --label="coverage-branches" --value=$BRANCHES --suffix="%" --file=badges/coverage-branches.svg 50=red 70=orange 85=yellow 100=green
+
       - name: Publica Badges na branch badges
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v4
@@ -94,10 +95,26 @@ jobs:
           publish_branch: badges
           publish_dir: ./badges
 
-      - name: DAST - OWASP ZAP Baseline Scan
+      - name: Prepara dados fictícios e token autenticado para o ZAP
+        id: zap_auth
+        run: |
+          docker compose exec -T backend sh -c 'if [ -f alembic.ini ]; then alembic upgrade head; else python -c "import app.models; from app.core.database import Base, engine; Base.metadata.create_all(bind=engine)"; fi'
+          docker compose exec -T -e ENVIRONMENT=test -e SEED_DEFAULT_PASSWORD=CiZapTestPass123! backend python scripts/seed_db.py
+          TOKEN=$(curl -fsS -X POST http://localhost:8000/api/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"login":"admin_teste","senha":"CiZapTestPass123!"}' | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+          echo "::add-mask::${TOKEN}"
+          echo "token=${TOKEN}" >> "$GITHUB_OUTPUT"
+
+      - name: DAST - OWASP ZAP Baseline Scan (Backend Autenticado)
         uses: zaproxy/action-baseline@v0.15.0
+        env:
+          ZAP_AUTH_HEADER: Authorization
+          ZAP_AUTH_HEADER_VALUE: Bearer ${{ steps.zap_auth.outputs.token }}
+          ZAP_AUTH_HEADER_SITE: localhost:8000
         with:
           target: "http://localhost:8000"
+          artifact_name: "zap_scan_backend"
           fail_action: true
           allow_issue_writing: false
           rules_file_name: '.zap/rules.tsv'
@@ -163,7 +180,7 @@ jobs:
           context: ./frontend
           pull: true
           load: true
-          tags: carteira-frontend:latest
+          tags: carteira-estudante-frontend:latest,carteira-frontend:latest
           build-args: |
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
             CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
@@ -179,6 +196,26 @@ jobs:
           ignore-unfixed: true
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
+
+      - name: Sobe contêiner do Frontend para DAST
+        run: |
+          docker compose up -d --no-build frontend
+          for i in $(seq 1 15); do
+            if curl -fsS -o /dev/null http://localhost:3000; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: DAST - OWASP ZAP Baseline Scan (Frontend)
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: "http://localhost:3000"
+          artifact_name: "zap_scan_frontend"
+          fail_action: true
+          allow_issue_writing: false
+          rules_file_name: '.zap/rules.tsv'
 
       - name: Build Multi-arquitetura e Push para GHCR - Frontend
         uses: docker/build-push-action@v7
