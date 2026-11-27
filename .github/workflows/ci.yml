@@ -114,6 +114,7 @@ jobs:
           ZAP_AUTH_HEADER_SITE: localhost:8000
         with:
           target: "http://localhost:8000"
+          artifact_name: "zap_scan_backend"
           fail_action: true
           allow_issue_writing: false
           rules_file_name: '.zap/rules.tsv'
@@ -211,6 +212,7 @@ jobs:
         uses: zaproxy/action-baseline@v0.15.0
         with:
           target: "http://localhost:3000"
+          artifact_name: "zap_scan_frontend"
           fail_action: true
           allow_issue_writing: false
           rules_file_name: '.zap/rules.tsv'
