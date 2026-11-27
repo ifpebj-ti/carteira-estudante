@@ -22,6 +22,8 @@ jobs:
   build-infra:
     name: Testa a Infraestrutura
     runs-on: ubuntu-latest
+    outputs:
+      deploy_tag: ${{ steps.deploy_tag.outputs.tag }}
 
     steps:
       - name: Checkout do código
@@ -86,6 +88,7 @@ jobs:
           BRANCHES=$(python3 -c "import xml.etree.ElementTree as ET; print(round(float(ET.parse('coverage.xml').getroot().attrib['branch-rate']) * 100, 1))")
           anybadge --label="coverage-lines" --value=$LINES --suffix="%" --file=badges/coverage-lines.svg 50=red 70=orange 85=yellow 100=green
           anybadge --label="coverage-branches" --value=$BRANCHES --suffix="%" --file=badges/coverage-branches.svg 50=red 70=orange 85=yellow 100=green
+
       - name: Publica Badges na branch badges
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v4
@@ -122,6 +125,18 @@ jobs:
       - name: Prepara nome do repositório
         run: echo "REPO_OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
+      - name: Define tag imutável de deploy
+        id: deploy_tag
+        run: |
+          if [[ -n "${{ inputs.release_tag }}" ]]; then
+            TAG="${{ inputs.release_tag }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/v}"
+          else
+            TAG="sha-${GITHUB_SHA::7}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Extrai metadados (tags, labels) para o Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -130,6 +145,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=${{ inputs.release_tag }},enable=${{ inputs.release_tag != '' }}
+            type=raw,value=${{ steps.deploy_tag.outputs.tag }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build Multi-arquitetura e Push para GHCR (Backend)
@@ -154,6 +170,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
+            type=raw,value=${{ steps.deploy_tag.outputs.tag }}
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
 
@@ -199,18 +216,53 @@ jobs:
     name: CD - Deploy na Oracle VM
     runs-on: ubuntu-latest
     needs: build-infra
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request'
 
     steps:
-      - name: Conectar via SSH e atualizar contêineres
+      - name: Conectar via SSH, atualizar contêineres e validar healthcheck
         uses: appleboy/ssh-action@v1.2.5
+        env:
+          IMAGE_TAG: ${{ needs.build-infra.outputs.deploy_tag }}
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: ${{ secrets.ORACLE_USERNAME }}
           key: ${{ secrets.ORACLE_SSH_KEY }}
-          script_stop: true
+          envs: IMAGE_TAG
           script: |
+            set -euo pipefail
             cd ~/carteira-estudante
-            sudo docker compose -f docker-compose.prod.yml pull
-            sudo docker compose -f docker-compose.prod.yml up -d
-            sudo docker image prune -f
+
+            PREVIOUS_TAG=""
+            if [ -f .last_deployed_tag ]; then
+              PREVIOUS_TAG="$(cat .last_deployed_tag)"
+            fi
+
+            echo "Iniciando deploy da tag: ${IMAGE_TAG} (anterior: ${PREVIOUS_TAG:-nenhuma})"
+
+            sudo IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yml pull
+            sudo IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yml up -d
+
+            healthcheck() {
+              for i in $(seq 1 15); do
+                if curl -fsS http://localhost:8000/health | grep -q '"status":"ok"' && \
+                   curl -fsS -o /dev/null http://localhost:3000; then
+                  return 0
+                fi
+                echo "Aguardando aplicação responder (${i}/15)..."
+                sleep 4
+              done
+              return 1
+            }
+
+            if healthcheck; then
+              echo "${IMAGE_TAG}" > .last_deployed_tag
+              echo "Deploy da tag ${IMAGE_TAG} validado com sucesso!"
+              sudo docker image prune -f
+            else
+              echo "ERRO: Healthcheck falhou para a tag ${IMAGE_TAG}!"
+              if [ -n "${PREVIOUS_TAG}" ]; then
+                echo "Executando rollback automático para ${PREVIOUS_TAG}..."
+                sudo IMAGE_TAG="${PREVIOUS_TAG}" docker compose -f docker-compose.prod.yml up -d
+              fi
+              exit 1
+            fi
