@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogOut } from "lucide-react";
+import { AppVersionBar } from "@/components/layout/AppVersionBar";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -199,6 +200,8 @@ export default function AdminLayout({
             </a>
           </div>
         </header>
+
+        <AppVersionBar className="px-4 md:px-8" />
 
         <div className="flex-1 overflow-y-auto">{children}</div>
       </main>

@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout do código
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Criar arquivo .env para testes da CI
         run: cp .env.example .env
@@ -157,6 +159,18 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
 
+      - name: Extrair versão da aplicação
+        id: app_version
+        run: |
+          if [[ -n "${{ inputs.release_tag }}" ]]; then
+            VERSION="${{ inputs.release_tag }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Build da Imagem do Frontend (Local + Cache para Trivy)
         uses: docker/build-push-action@v7
         with:
@@ -166,6 +180,7 @@ jobs:
           tags: carteira-frontend:latest
           build-args: |
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_APP_VERSION=${{ steps.app_version.outputs.version }}
             CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=${{ github.workflow }}-frontend-trivy
           cache-to: type=gha,mode=max,scope=${{ github.workflow }}-frontend-trivy
@@ -191,6 +206,7 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           build-args: |
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_APP_VERSION=${{ steps.app_version.outputs.version }}
             CACHE_BUSTER=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=${{ github.workflow }}-frontend-push
           cache-to: type=gha,mode=max,scope=${{ github.workflow }}-frontend-push
